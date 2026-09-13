@@ -24,7 +24,7 @@ The RSLive model is the reference implementation.
 
 Logical publication independent of transport.
 
-Recommended source fields:
+Source fields:
 
 - `source_type` — `event | class | course | announcement | manual`
 - `source_id` — nullable UUID / external key
@@ -35,45 +35,67 @@ Recommended source fields:
 
 ### `social_post_variants`
 
-Platform-ready content.
-
-One logical post can have multiple variants, for example:
-
-- Telegram
-- Instagram
-- Instagram Story
-- Facebook
-- Threads
-
-Each variant stores its body, link and metadata independently.
+Platform-ready content. One logical post can have multiple variants, for example Telegram, Instagram, Instagram Story, Facebook and Threads.
 
 ### `social_destinations`
 
-Configured destinations / accounts.
+Configured destinations / accounts. Examples: `telegram_main`, `instagram`, `instagram_story`, `facebook`, `threads`, `make_webhook`.
 
-Examples:
-
-- `telegram_main`
-- `instagram`
-- `instagram_story`
-- `facebook`
-- `threads`
-- `make_webhook`
-
-Destination settings should determine transport configuration and optional feature flags.
+Provider credentials are referenced by secret name from destination settings and must live in Supabase secrets, never in the repository or ordinary database rows.
 
 ### `social_publication_jobs`
 
 Durable delivery queue with scheduling, retries, leases, external IDs and error state.
 
-Reuse the RSLive semantics where possible:
+Implemented queue fields include:
 
-- idempotent scheduling
-- leased jobs
-- retry state
-- external publication ID / URL
-- destination rate-limit state
-- terminal / ambiguous publish protection
+- `queue_class` — `scheduled | transactional`
+- `priority` — higher values are claimed first inside a lane
+- `scheduled_at` — earliest planned send time
+- `available_at` — retry/backoff gate
+- `expires_at` — optional hard deadline after which the message is cancelled
+- `depends_on_job_id` — optional dependency that must be published first
+- lease state, attempt counters and provider response
+
+## Delivery lanes
+
+There is one durable queue and two delivery lanes rather than two unrelated queue implementations.
+
+`transactional` is for messages that should be delivered at the first available opportunity: booking confirmations, cancellations, urgent schedule changes, Telegram polls after an announcement, and similar operational messages.
+
+`scheduled` is for ordinary content: announcements, Stories, reminders and regular event promotion.
+
+The claim worker processes transactional work first. To prevent ordinary content from being starved forever, each destination tracks `transactional_streak`. If a scheduled job is ready, at most four consecutive transactional jobs may be claimed for that destination before one scheduled job is allowed through. A scheduled claim resets the streak.
+
+Default worker batch budget is 8 transactional and 2 scheduled jobs. These are worker parameters, not schema constants.
+
+A destination can have only one active lease at a time. Provider rate limits and `retry_after_at` are respected by the claim function.
+
+## Job dependencies
+
+`depends_on_job_id` models simple publication chains without embedding orchestration into transports.
+
+Example:
+
+```text
+Telegram announcement job
+        ↓ published
+Telegram poll job
+```
+
+The dependent job stays queued until its dependency reaches `published`.
+
+## Expiration
+
+Transactional messages often have a limited useful lifetime. `expires_at` is therefore part of the queue contract.
+
+Examples:
+
+- urgent class cancellation — short lifetime
+- booking confirmation — hours
+- event reminder — must expire when the event is no longer relevant
+
+Expired queued/retry jobs are cancelled rather than retried later.
 
 ## Event publication state
 
@@ -97,81 +119,55 @@ created_at
 updated_at
 ```
 
-This allows event orchestration to be retried safely without duplicate announcements or duplicate polls.
-
 ## Telegram poll flow
 
-After the Telegram announcement is published, persist the returned Telegram `message_id`.
+After the Telegram announcement is published, persist the returned Telegram `message_id`. The poll is then represented as a transactional publication job dependent on the announcement job.
 
-Then call `sendPoll` using that message as the reply target.
-
-The exact answer set is configurable. Historical behavior can be preserved, but a clearer default is:
-
-- Буду
-- Скорее буду
-- Пока не знаю
-- Не смогу
-
-The poll is event-specific behavior and therefore belongs to the event orchestration layer, not the generic Telegram publisher.
+The dispatcher already supports `sendMessage` and `sendPoll`; reply binding will be completed in event orchestration once the exact Telegram chat/topic setup is known.
 
 ## Weather-aware OpenAir policy
 
-Use a weather provider in the event orchestration layer. Open-Meteo is a suitable default candidate because it provides hourly forecast data without requiring an API key for ordinary usage.
+Use a weather provider in the event orchestration layer. Open-Meteo is the default candidate.
 
-The decision should not be a single rain boolean. Compute a status from event-time conditions:
-
-- precipitation probability
-- precipitation / rain
-- wind
-- temperature
-- weather code
-
-Result:
-
-- `good`
-- `uncertain`
-- `bad`
-
-The thresholds belong in configuration rather than hard-coded scattered logic.
+Compute `good | uncertain | bad` from event-time precipitation probability, rain, wind, temperature and weather code. Thresholds belong in configuration.
 
 Recommended lifecycle:
 
 ```text
-T-7d   main announcement (unless clearly unsuitable)
+T-7d   main announcement
 T-24h  weather recheck + reminder decision
 T-4h   final weather check
 T-1h   final Story / Telegram reminder only if confirmed
 ```
 
-Exact timing will remain configurable.
-
 ## Manual publishing
 
-The social subsystem must support posts without an event.
-
-Minimum UI / API fields:
-
-- title
-- text
-- optional link
-- template / uploaded asset
-- destinations
-- publish now / scheduled time
-
-This keeps the publisher useful before the full CRM UI exists.
+The social subsystem must support posts without an event. Minimum UI/API fields: title, text, optional link, template/uploaded asset, destinations, publish now/scheduled time.
 
 ## Make compatibility
 
-Keep `make_webhook` as a first-class destination during migration from the old system.
+`make_webhook` remains a first-class destination during migration. The dispatcher reads its webhook URL from a Supabase secret named by the destination configuration.
 
-The existing Make webhook contract should be documented before changing it. Secrets must live in Supabase secrets / environment variables, not in repository files or database template definitions.
+## Implementation status
 
-## First milestone
+Implemented in DanceApp database:
 
-1. Port core social tables / RPCs from RSLive.
-2. Port `social-publish-dispatch` with only the destinations needed for the first test.
-3. Implement poster rendering.
-4. Implement manual post creation.
-5. Implement event announcement sync.
-6. Implement Telegram announcement + poll.
-7. Add weather-aware OpenAir scheduling.
+1. `social_posts`
+2. `social_post_variants`
+3. `social_destinations`
+4. `social_publication_jobs`
+5. idempotent scheduling RPC
+6. transactional/scheduled claim RPC with anti-starvation policy
+7. success/failure RPCs
+8. destination backoff support
+9. job dependencies and expiration
+10. backend-only RLS posture
+
+Implemented in repository:
+
+- `supabase/functions/social-publish-dispatch/index.ts`
+- Make webhook transport
+- Telegram `sendMessage` transport
+- Telegram `sendPoll` transport
+
+Next: configure destinations/secrets, deploy and smoke-test the dispatcher, then implement image rendering and event orchestration.
