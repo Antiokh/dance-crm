@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "@octokit": "npm:octokit@5.0.5"
+  }
+}
