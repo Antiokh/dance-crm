@@ -1,0 +1,49 @@
+.auth-shell-page {
+  padding-bottom: calc(24px + var(--app-safe-bottom, 0px));
+}
+
+.auth-ok {
+  color: var(
+    --tg-theme-accent-text-color,
+    var(--tg-theme-link-color, #2481cc)
+  );
+  font-weight: 700;
+}
+
+.auth-style-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--app-space-8, 8px);
+  padding:
+    var(--app-panel-padding-y, 12px)
+    var(--app-panel-padding-x, 16px);
+}
+
+.auth-style-pill {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  border-radius: var(--app-pill-radius, 999px);
+  padding: 6px 10px;
+  background: color-mix(
+    in srgb,
+    var(
+      --tg-theme-accent-text-color,
+      var(--tg-theme-link-color, #2481cc)
+    ) 12%,
+    var(--tg-theme-bg-color, #fff)
+  );
+  color: var(
+    --tg-theme-accent-text-color,
+    var(--tg-theme-link-color, #2481cc)
+  );
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.build-inline {
+  font-weight: 600;
+  opacity: 0.58;
+  letter-spacing: 0;
+  text-transform: none;
+}

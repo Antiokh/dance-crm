@@ -1,0 +1,225 @@
+import { useEffect, useMemo, useState } from 'react'
+import {
+  Cell,
+  List,
+  Placeholder,
+  Section,
+  Spinner,
+} from '@telegram-apps/telegram-ui'
+import {
+  authenticateTelegram,
+  type AuthState,
+} from './lib/auth'
+import type {
+  AppRole,
+  DanceStyle,
+  DancerSummary,
+} from './lib/dancerContext'
+import { getTmaDiagnostics } from './lib/tma'
+
+const initialAuth: AuthState = {
+  status: 'preview',
+  session: null,
+  context: null,
+  error: null,
+}
+
+const roleLabels: Record<AppRole, string> = {
+  dancer: 'Танцор',
+  trainer: 'Тренер',
+  administrator: 'Администратор',
+}
+
+function displayName(dancer: DancerSummary) {
+  if (dancer.custom_name?.trim()) return dancer.custom_name.trim()
+
+  const fullName = [dancer.first_name, dancer.last_name]
+    .filter(Boolean)
+    .join(' ')
+    .trim()
+
+  return fullName || dancer.telegram_username || 'Dancer'
+}
+
+function initials(dancer: DancerSummary) {
+  return displayName(dancer)
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('')
+    .slice(0, 2)
+}
+
+function styleTitle(style: DanceStyle) {
+  return (
+    style.title_ru?.trim() ||
+    style.title_en?.trim() ||
+    style.title_sr?.trim() ||
+    `Style #${style.id}`
+  )
+}
+
+export default function App() {
+  const [auth, setAuth] = useState<AuthState>(initialAuth)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+
+    void authenticateTelegram()
+      .then((next) => {
+        if (!cancelled) setAuth(next)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const tma = getTmaDiagnostics()
+  const buildLabel =
+    __APP_COMMIT__ === 'local'
+      ? 'local'
+      : __APP_COMMIT__.slice(0, 8)
+
+  const dancer =
+    auth.status === 'authenticated'
+      ? auth.context.dancer
+      : null
+
+  const name = useMemo(
+    () => dancer ? displayName(dancer) : 'Dancers',
+    [dancer],
+  )
+
+  return (
+    <main className="app-shell">
+      <header className="topbar">
+        <div>
+          <div className="eyebrow">
+            DANCERS <span className="build-inline">· {buildLabel}</span>
+          </div>
+          <h1>Профиль</h1>
+        </div>
+
+        {dancer ? (
+          <div className="account-area">
+            <div className="account-trigger">
+              <span className="account-copy">
+                <strong>{name}</strong>
+                <span>
+                  {auth.context.roles.map((role) => roleLabels[role]).join(' · ')}
+                </span>
+              </span>
+              <span className="avatar" aria-hidden="true">
+                {initials(dancer)}
+              </span>
+            </div>
+          </div>
+        ) : null}
+      </header>
+
+      <section className="page auth-shell-page">
+        <List>
+          {loading ? (
+            <Placeholder
+              header="Авторизация…"
+              description="Проверяем Telegram и создаём сессию DanceApp."
+            >
+              <Spinner size="m" />
+            </Placeholder>
+          ) : auth.status === 'error' ? (
+            <>
+              <Placeholder
+                header="Не удалось войти"
+                description={auth.error}
+              />
+              <Section header="Диагностика">
+                <Cell>
+                  Runtime: {tma.isTelegram ? 'Telegram' : 'browser'}
+                </Cell>
+                <Cell>
+                  TMA: {tma.initialized ? 'initialized' : tma.error || 'not initialized'}
+                </Cell>
+                <Cell>Build: {buildLabel}</Cell>
+              </Section>
+            </>
+          ) : auth.status === 'preview' ? (
+            <>
+              <Placeholder
+                header="Browser preview"
+                description="Интерфейс загружен. Откройте Mini App из Telegram, чтобы проверить реальную авторизацию."
+              />
+              <Section header="Runtime">
+                <Cell>DanceApp: configured</Cell>
+                <Cell>
+                  TMA: {tma.isTelegram ? 'Telegram detected' : 'browser preview'}
+                </Cell>
+                <Cell>Build: {buildLabel}</Cell>
+              </Section>
+            </>
+          ) : (
+            <>
+              <Section header="Авторизация">
+                <Cell
+                  subtitle={
+                    dancer?.telegram_username
+                      ? `@${dancer.telegram_username}`
+                      : 'Telegram'
+                  }
+                  after={<strong>OK</strong>}
+                >
+                  {name}
+                </Cell>
+                <Cell
+                  subtitle="Supabase Auth session"
+                  after={<span className="auth-ok">Активна</span>}
+                >
+                  DanceApp
+                </Cell>
+                <Cell
+                  subtitle={String(dancer?.telegram_id ?? '—')}
+                  after={<span>{auth.context.roles.length}</span>}
+                >
+                  Telegram ID · ролей
+                </Cell>
+              </Section>
+
+              <Section header="Роли">
+                {auth.context.roles.map((role) => (
+                  <Cell key={role}>{roleLabels[role]}</Cell>
+                ))}
+              </Section>
+
+              <Section header="Танцевальные стили">
+                {auth.context.styles.length > 0 ? (
+                  <div className="auth-style-list">
+                    {auth.context.styles.map((style) => (
+                      <span className="auth-style-pill" key={style.id}>
+                        {styleTitle(style)}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <Cell subtitle="Профиль авторизован, стили пока не выбраны.">
+                    Нет выбранных стилей
+                  </Cell>
+                )}
+              </Section>
+
+              <Section header="Runtime">
+                <Cell>
+                  TMA: {tma.initialized ? 'initialized' : 'fallback'}
+                </Cell>
+                <Cell>Build: {buildLabel}</Cell>
+              </Section>
+            </>
+          )}
+        </List>
+      </section>
+    </main>
+  )
+}

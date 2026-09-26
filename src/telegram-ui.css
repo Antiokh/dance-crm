@@ -1,0 +1,1173 @@
+/* TelegramUI integration.
+   Keep this file limited to layout glue and upstream theme fixes.
+   Component visuals come from @telegram-apps/telegram-ui. */
+
+.telegram-ui-root {
+  width: 100%;
+  height: var(--tg-viewport-stable-height, 100dvh);
+  overflow: hidden;
+  background: var(--tg-theme-secondary-bg-color, var(--tg-theme-bg-color, #fff));
+  color: var(--tg-theme-text-color, #000);
+}
+
+.telegram-ui-root .app-shell {
+  background: transparent;
+}
+
+.tgui-page {
+  padding:
+    var(--app-page-padding-top)
+    max(var(--app-page-padding-x), var(--app-safe-right))
+    var(--app-page-padding-bottom)
+    max(var(--app-page-padding-x), var(--app-safe-left));
+}
+
+.tgui-page-title {
+  padding: var(--app-panel-gap) var(--app-panel-padding-x);
+}
+
+.tgui-page-title-with-action {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--app-panel-padding-y);
+}
+
+.tgui-page-title-with-action > div {
+  min-width: 0;
+}
+
+
+.tgui-page-title h2 {
+  margin: var(--app-section-heading-top) 0 0;
+}
+
+.tgui-city-tabs {
+  margin: var(--app-section-heading-top) 0 var(--app-panel-gap);
+}
+
+.tgui-section {
+  margin: 0 0 var(--app-section-gap);
+}
+
+.tgui-section > header {
+  padding-top: var(--app-section-heading-top);
+}
+
+.tgui-trip-month-group {
+  margin-bottom: var(--app-section-gap);
+}
+
+.tgui-trip-month-label {
+  padding: var(--app-panel-gap) var(--app-chrome-padding-x) var(--app-section-gap);
+  color: var(--tg-theme-section-header-text-color, var(--tg-theme-link-color, #2481cc));
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.tgui-trip-list {
+  margin: 0 0 var(--app-section-gap);
+  padding: 0;
+  overflow: hidden;
+  border-radius: var(--app-control-radius);
+  background: var(--tg-theme-bg-color, #ffffff);
+}
+
+.tgui-trip-list > :not(:last-child) {
+  margin-bottom: 0;
+}
+
+.tgui-trip-cell {
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+}
+
+.tgui-trip-cell:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 76px;
+  right: 16px;
+  bottom: 0;
+  height: 1px;
+  background: var(--tg-theme-section-separator-color, var(--tg-theme-hint-color, #999));
+  pointer-events: none;
+}
+
+.tgui-trip-date {
+  min-width: 44px;
+  text-align: center;
+}
+
+.tgui-trip-status-emoji {
+  display: grid;
+  min-width: 44px;
+  min-height: 44px;
+  place-items: center;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.tgui-trip-date strong,
+.tgui-trip-date span {
+  display: block;
+}
+
+.tgui-trip-date strong {
+  font-size: 28px;
+  line-height: .95;
+}
+
+.tgui-trip-date span {
+  margin-top: 3px;
+  color: var(--tg-theme-hint-color, #999);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.tgui-trip-date-booked {
+  padding: 5px 4px 4px;
+  border: 1px solid var(--tg-theme-accent-text-color, var(--tg-theme-link-color, #2481cc));
+  border-radius: var(--app-control-radius);
+  box-sizing: border-box;
+  color: var(--tg-theme-accent-text-color, var(--tg-theme-link-color, #2481cc));
+}
+
+.tgui-trip-date-booked span {
+  color: var(--tg-theme-accent-text-color, var(--tg-theme-link-color, #2481cc));
+}
+
+.tgui-trip-date-today,
+.tgui-trip-date-today span {
+  color: var(--tg-theme-accent-text-color, var(--tg-theme-link-color, #2481cc));
+}
+
+.tgui-trip-title-accent {
+  color: var(--tg-theme-accent-text-color, var(--tg-theme-link-color, #2481cc));
+  font-weight: 600;
+}
+
+.tgui-trip-meta {
+  display: flex;
+  gap: var(--app-panel-padding-y);
+  flex-wrap: wrap;
+}
+
+.tgui-trip-meta strong {
+  font-weight: 600;
+}
+
+.tgui-trip-operational-meta {
+  align-items: baseline;
+}
+
+.tgui-summary-value {
+  color: var(--tg-theme-subtitle-text-color, var(--tg-theme-hint-color, #999));
+  text-align: right;
+  white-space: nowrap;
+}
+
+.tgui-trip-summary-heading {
+  min-height: 72px;
+}
+
+.vehicle-occupancy-inline {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0;
+  height: 100%;
+  margin: 0 0 0 8px;
+}
+
+.vehicle-occupancy-meter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 128px;
+  height: 70px;
+}
+
+.vehicle-silhouette {
+  position: relative;
+  display: block;
+  width: 128px;
+  height: 70px;
+  flex: 0 0 auto;
+}
+
+.vehicle-silhouette-base,
+.vehicle-silhouette-progress {
+  position: absolute;
+  inset: 0;
+  -webkit-mask-image: var(--vehicle-mask);
+  mask-image: var(--vehicle-mask);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: left center;
+  mask-position: left center;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+
+.vehicle-silhouette-base {
+  background: var(--tg-theme-hint-color, #999);
+  opacity: .34;
+}
+
+.vehicle-silhouette-progress {
+  background: var(--tg-theme-accent-text-color, var(--tg-theme-link-color, #2481cc));
+  clip-path: inset(0 calc(100% - var(--vehicle-fill)) 0 0);
+  transition: clip-path 180ms ease;
+}
+
+.vehicle-silhouette.is-full .vehicle-silhouette-progress {
+  background: var(--tg-theme-destructive-text-color, #d14b4b);
+}
+
+.tgui-account-menu-section {
+  margin: 0;
+}
+
+/* TelegramUI Cell/Tappable does not reset native <button> appearance when
+   Component="button". Keep the reset scoped to this popover only. */
+.account-menu .tgui-account-profile-cell,
+.account-menu .tgui-account-role {
+  border: 0;
+  outline: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0 var(--app-chrome-padding-x);
+}
+
+/* Section.Header renders its typography as an <h1>. Without a global reset,
+   Android WebView applies browser h1 defaults on top of TelegramUI. */
+.account-menu .tgui-account-menu-section h1 {
+  margin: 0;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: inherit;
+}
+
+.tgui-account-profile-cell,
+.tgui-account-role {
+  width: 100%;
+  text-align: left;
+}
+
+.tgui-account-profile-active,
+.tgui-account-role-active {
+  color: var(--tg-theme-accent-text-color, var(--tg-theme-link-color, #2481cc));
+}
+
+.detail-page {
+  padding-bottom: calc(84px + var(--app-safe-bottom));
+}
+
+.tgui-my-bookings-section {
+  margin-bottom: var(--app-section-gap);
+}
+
+.tgui-my-booking-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.tgui-my-booking-cancel {
+  color: var(--tg-theme-destructive-text-color, #d14b4b);
+}
+
+.tgui-return-section {
+  margin-bottom: var(--app-section-gap);
+}
+
+.detail-page .sticky-action {
+  position: sticky;
+  z-index: 4;
+  bottom: var(--app-safe-bottom);
+  margin-top: 0;
+  padding-top: var(--app-panel-gap);
+  padding-bottom: var(--app-panel-gap);
+  background: var(--tg-theme-secondary-bg-color, var(--tg-theme-bg-color, #fff));
+}
+
+.tgui-actions {
+  display: grid;
+  width: 100%;
+  gap: var(--app-panel-gap);
+  padding: 0 0 var(--app-panel-padding-y);
+}
+
+.tgui-actions.sticky-action {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.tgui-booking-sheet {
+  padding-left: max(var(--app-space-8), var(--app-safe-left));
+  padding-right: max(var(--app-space-8), var(--app-safe-right));
+  background: var(--tg-theme-secondary-bg-color, var(--tg-theme-bg-color, #fff));
+}
+
+.tgui-booking-sheet .sheet-title-row {
+  padding: 0 var(--app-space-8);
+}
+
+.tgui-sheet-close {
+  display: grid;
+  width: 48px;
+  min-width: 48px;
+  height: 48px;
+  min-height: 48px;
+  flex: 0 0 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  place-items: center;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  color: var(--tg-theme-accent-text-color, var(--tg-theme-link-color, #2481cc));
+}
+
+.tgui-sheet-close svg {
+  width: 28px;
+  height: 28px;
+}
+
+.tgui-sheet-close:active {
+  background: color-mix(
+    in srgb,
+    var(--tg-theme-accent-text-color, var(--tg-theme-link-color, #2481cc)) 12%,
+    transparent
+  );
+}
+
+.tgui-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--app-panel-gap);
+}
+
+.tgui-form-stack {
+  display: grid;
+  gap: var(--app-panel-gap);
+  padding: var(--app-panel-gap) 0;
+}
+
+.telegram-form-control:not(.telegram-form-control-long) {
+  height: var(--app-control-height);
+  min-height: var(--app-control-height);
+  max-height: var(--app-control-height);
+  overflow: hidden;
+}
+
+.telegram-form-control-long {
+  height: auto;
+  min-height: var(--app-control-height);
+}
+
+.telegram-form-control:not(.telegram-form-control-long) input,
+.telegram-form-control:not(.telegram-form-control-long) select {
+  height: 100%;
+  min-height: 0;
+}
+
+.telegram-form-control {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  --telegram-form-outline: color-mix(
+    in srgb,
+    var(--tg-theme-hint-color, #8e8e93) 48%,
+    transparent
+  );
+  border-radius: var(--app-control-radius);
+  background: var(--tg-theme-bg-color, #fff);
+  box-shadow: inset 0 0 0 1px var(--telegram-form-outline);
+  transition: box-shadow 120ms ease;
+}
+
+.telegram-form-control:focus-within {
+  box-shadow: inset 0 0 0 1.5px
+    var(--tg-theme-accent-text-color, var(--tg-theme-link-color, #2481cc));
+}
+
+.telegram-select-control {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--telegram-form-outline);
+  border-radius: var(--app-control-radius);
+  background: var(--tg-theme-bg-color, #fff);
+  box-shadow: none;
+}
+
+.telegram-select-control:focus-within {
+  border-color: var(--tg-theme-accent-text-color, var(--tg-theme-link-color, #2481cc));
+  box-shadow: none;
+}
+
+.telegram-select-native {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 0 44px 0 16px;
+  border: 0;
+  border-radius: inherit;
+  outline: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  color: var(--tg-theme-text-color, #000);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+  color-scheme: inherit;
+}
+
+.telegram-select-native option,
+.telegram-select-native optgroup {
+  color: var(--tg-theme-text-color, #000);
+  background-color: var(--tg-theme-bg-color, #fff);
+  font: inherit;
+  color-scheme: inherit;
+}
+
+.telegram-select-native option:checked {
+  color: var(--tg-theme-text-color, #000);
+  background-color: color-mix(
+    in srgb,
+    var(--tg-theme-accent-text-color, var(--tg-theme-link-color, #2481cc)) 14%,
+    var(--tg-theme-bg-color, #fff)
+  );
+}
+
+.telegram-select-chevron {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  width: 20px;
+  height: 20px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--tg-theme-hint-color, #999);
+}
+
+.telegram-form-control-native-picker input[type="date"]::-webkit-calendar-picker-indicator,
+.telegram-form-control-native-picker input[type="time"]::-webkit-calendar-picker-indicator {
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.telegram-form-control-native-picker input[type="date"]::-webkit-datetime-edit,
+.telegram-form-control-native-picker input[type="time"]::-webkit-datetime-edit {
+  margin: 0;
+  padding: 0;
+}
+
+.telegram-input-picker-button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  place-items: center;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  color: var(--tg-theme-hint-color, #999);
+}
+
+.telegram-input-picker-button svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
+.telegram-input-picker-button:active {
+  background: color-mix(
+    in srgb,
+    var(--tg-theme-accent-text-color, var(--tg-theme-link-color, #2481cc)) 10%,
+    transparent
+  );
+}
+
+.telegram-form-control {
+  align-items: center;
+  padding: 0;
+  gap: 0;
+}
+
+.telegram-form-control input {
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 0 var(--app-space-16);
+  line-height: normal;
+}
+
+.telegram-form-control:has(.telegram-input-addon) input,
+.telegram-form-control:has(.telegram-input-helper) input,
+.telegram-form-control:has(.telegram-input-picker-button) input {
+  padding-right: var(--app-space-4);
+}
+
+.telegram-input-addon {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  margin: 0;
+  padding: 0;
+  color: var(--tg-theme-subtitle-text-color, var(--tg-theme-hint-color, #999));
+  font-size: 14px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.telegram-form-control :has(> .telegram-input-addon),
+.telegram-form-control :has(> .telegram-input-helper),
+.telegram-form-control :has(> .telegram-input-picker-button) {
+  align-items: center;
+  margin: 0;
+  padding: 0 8px 0 0;
+}
+
+.telegram-input-helper {
+  display: inline-flex;
+  width: auto;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: color-mix(
+    in srgb,
+    var(--tg-theme-accent-text-color, var(--tg-theme-link-color, #2481cc)) 10%,
+    transparent
+  );
+  color: var(--tg-theme-accent-text-color, var(--tg-theme-link-color, #2481cc));
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.telegram-input-helper-danger {
+  display: grid;
+  width: 28px;
+  padding: 0;
+  place-items: center;
+  color: var(--tg-theme-destructive-text-color, #d14b4b);
+  background: color-mix(
+    in srgb,
+    var(--tg-theme-destructive-text-color, #d14b4b) 12%,
+    transparent
+  );
+}
+
+.telegram-input-helper-danger svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.telegram-input-helper-danger:active {
+  background: color-mix(
+    in srgb,
+    var(--tg-theme-destructive-text-color, #d14b4b) 20%,
+    transparent
+  );
+}
+
+.telegram-switch {
+  /* TelegramUI iOS Switch uses secondary_bg_color for the off track.
+     On some Telegram dark themes that equals the sheet background, so only
+     the white thumb remains visible. Keep the stock Switch geometry and
+     on-state, but give its off track visible Telegram-derived contrast. */
+  --tgui--secondary_bg_color: color-mix(
+    in srgb,
+    var(--tg-theme-hint-color, #8e8e93) 42%,
+    var(--tg-theme-bg-color, #000000)
+  );
+}
+
+.tgui-booking-total {
+  padding: var(--app-space-10) var(--app-space-12) var(--app-space-12);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--tg-theme-text-color, #000);
+}
+
+.tgui-booking-total span {
+  color: var(--tg-theme-subtitle-text-color, var(--tg-theme-hint-color, #888));
+}
+
+.tgui-error {
+  margin: var(--app-space-8) var(--app-space-12);
+  color: var(--tg-theme-destructive-text-color, #d14b4b);
+}
+
+.tgui-bottom-nav {
+  flex: 0 0 auto;
+  width: 100%;
+  padding-bottom: var(--app-safe-bottom);
+  background: var(--tg-theme-bottom-bar-bg-color, var(--tg-theme-bg-color, #ffffff));
+}
+
+.info-page {
+  padding-top: 6px;
+}
+
+.info-page .tgui-page-title {
+  padding-top: 2px;
+  padding-bottom: 4px;
+}
+
+.info-page .tgui-page-title h2 {
+  margin-top: 0;
+  font-size: 28px;
+  line-height: 1.05;
+}
+
+.info-page .tgui-city-tabs {
+  margin-top: 0;
+  margin-bottom: 6px;
+}
+
+.tgui-info-section {
+  margin-bottom: var(--app-section-gap);
+}
+
+.tgui-info-content {
+  display: grid;
+  gap: var(--app-panel-gap);
+  padding: var(--app-panel-padding-y) var(--app-panel-padding-x);
+}
+
+.tgui-info-meta {
+  color: var(--tg-theme-subtitle-text-color, var(--tg-theme-hint-color, #999));
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.tgui-info-section h3 {
+  margin: 0;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.tgui-info-section .markdown-body {
+  padding: 0;
+}
+
+.tgui-info-section .markdown-body > :first-child {
+  margin-top: 0;
+}
+
+.tgui-info-section .markdown-body > :last-child {
+  margin-bottom: 0;
+}
+
+@media (max-width: 520px) {
+  .tgui-page {
+    padding-left: max(8px, var(--app-safe-left));
+    padding-right: max(8px, var(--app-safe-right));
+  }
+
+  .tgui-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* Driver/admin operational manifest */
+.tgui-operational-page {
+  padding-bottom: calc(84px + var(--app-safe-bottom));
+}
+
+.tgui-operational-panel {
+  margin-top: var(--app-section-gap);
+}
+
+.tgui-operational-tabs {
+  margin: 0 0 var(--app-section-gap);
+}
+
+.tgui-manifest-section {
+  margin-bottom: var(--app-section-gap);
+}
+
+.tgui-manifest-list {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.tgui-manifest-passenger {
+  min-height: 62px;
+}
+
+.tgui-manifest-passenger-openable {
+  cursor: pointer;
+}
+
+.tgui-manifest-passenger-openable:active {
+  background: var(--tg-theme-secondary-bg-color, #f2f4f7);
+}
+
+.tgui-passenger-details-sheet {
+  max-height: min(82dvh, 720px);
+  overflow-y: auto;
+}
+
+.tgui-passenger-details-sheet .tgui-passenger-detail-action {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.tgui-passenger-details-sheet .tgui-passenger-detail-action:active {
+  background: var(--tg-theme-secondary-bg-color, #f2f4f7);
+}
+
+.tgui-passenger-cancel {
+  color: var(--tg-theme-destructive-text-color, #d14b4b);
+}
+
+.tgui-passenger-contact-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--app-section-gap);
+}
+
+.tgui-contact-action {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--tg-theme-accent-text-color, var(--tg-theme-link-color, #2481cc));
+  text-decoration: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.tgui-contact-action:active {
+  background: var(--tg-theme-secondary-bg-color, #f2f4f7);
+}
+
+.tgui-contact-action.disabled,
+.tgui-contact-action:disabled {
+  opacity: .28;
+  pointer-events: none;
+}
+
+.tgui-operational-error {
+  margin: 0 var(--app-panel-padding-x) var(--app-panel-padding-y);
+  color: var(--tg-theme-destructive-text-color, #d14b4b);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.tgui-operation-progress {
+  position: sticky;
+  z-index: 4;
+  bottom: calc(8px + var(--app-safe-bottom));
+  margin: var(--app-section-gap) 0 0;
+  padding: var(--app-panel-padding-y) var(--app-panel-padding-x);
+  border: 1px solid var(--tg-theme-section-separator-color, var(--app-separator));
+  border-radius: var(--app-control-radius);
+  background: var(--tg-theme-bg-color, #fff);
+}
+
+.tgui-operation-progress-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--app-panel-padding-y);
+  color: var(--tg-theme-text-color, #000);
+  font-size: 14px;
+}
+
+.tgui-operation-progress-heading strong {
+  white-space: nowrap;
+}
+
+.tgui-operation-progress-track {
+  height: 7px;
+  margin-top: 9px;
+  overflow: hidden;
+  border-radius: var(--app-pill-radius);
+  background: color-mix(
+    in srgb,
+    var(--tg-theme-hint-color, #8e8e93) 24%,
+    transparent
+  );
+}
+
+.tgui-operation-progress-track > span {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  border-radius: inherit;
+  background: var(--tg-theme-accent-text-color, var(--tg-theme-link-color, #2481cc));
+  transition: width 160ms ease;
+}
+
+.tgui-operation-progress-detail {
+  margin-top: 6px;
+  color: var(--tg-theme-subtitle-text-color, var(--tg-theme-hint-color, #999));
+  font-size: 11px;
+  text-align: right;
+}
+
+
+.tgui-admin-trip-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--app-panel-gap);
+}
+
+.tgui-admin-trip-title-row h2 {
+  margin: 0;
+  min-width: 0;
+}
+
+.tgui-admin-edit-trip-button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  place-items: center;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  color: var(--tg-theme-accent-text-color, var(--tg-theme-link-color, #2481cc));
+}
+
+.tgui-admin-edit-trip-button:active {
+  background: color-mix(
+    in srgb,
+    var(--tg-theme-accent-text-color, var(--tg-theme-link-color, #2481cc)) 12%,
+    transparent
+  );
+}
+
+/* Admin trip creation/editing */
+.tgui-split-sheet {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tgui-sheet-controls {
+  flex: 0 0 auto;
+}
+
+.tgui-sheet-scroll {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tgui-sheet-footer {
+  flex: 0 0 auto;
+  background: var(--tg-theme-secondary-bg-color, var(--tg-theme-bg-color, #fff));
+}
+
+.tgui-admin-trip-sheet {
+  max-height: min(92dvh, 860px);
+  padding:
+    10px
+    max(var(--app-chrome-padding-x), var(--app-safe-right))
+    0
+    max(var(--app-chrome-padding-x), var(--app-safe-left));
+  background: var(--tg-theme-secondary-bg-color, var(--tg-theme-bg-color, #fff));
+}
+
+.tgui-admin-trip-sheet .tgui-sheet-scroll {
+  padding-bottom: calc(20px + var(--app-safe-bottom));
+}
+
+.tgui-admin-template-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--app-panel-gap);
+  align-items: center;
+  padding: 0 0 var(--app-section-gap);
+}
+
+.tgui-admin-template-picker {
+  margin-bottom: var(--app-section-gap);
+}
+
+.tgui-admin-template-cell {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.tgui-admin-two-choice-grid,
+.tgui-admin-destination-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--app-panel-gap);
+  padding: var(--app-panel-padding-y) var(--app-panel-padding-x);
+}
+
+.tgui-admin-choice-button,
+.tgui-admin-vehicle-choice {
+  border: 1px solid color-mix(
+    in srgb,
+    var(--tg-theme-hint-color, #999) 28%,
+    transparent
+  );
+  outline: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--tg-theme-bg-color, #fff);
+  color: var(--tg-theme-text-color, #000);
+  font: inherit;
+}
+
+.tgui-admin-choice-button {
+  min-height: 42px;
+  padding: var(--app-panel-gap) 10px;
+  border-radius: var(--app-control-radius);
+  font-weight: 500;
+  text-align: center;
+}
+
+.tgui-admin-choice-button.is-selected,
+.tgui-admin-vehicle-choice.is-selected {
+  border-color: var(--tg-theme-accent-text-color, var(--tg-theme-link-color, #2481cc));
+  background: color-mix(
+    in srgb,
+    var(--tg-theme-accent-text-color, var(--tg-theme-link-color, #2481cc)) 10%,
+    var(--tg-theme-bg-color, #fff)
+  );
+  color: var(--tg-theme-accent-text-color, var(--tg-theme-link-color, #2481cc));
+}
+
+.tgui-admin-vehicle-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--app-panel-gap);
+  padding: var(--app-panel-padding-y) var(--app-panel-padding-x);
+}
+
+.tgui-admin-vehicle-choice {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  padding: 5px 4px;
+  border-radius: var(--app-control-radius);
+  justify-items: center;
+  align-content: center;
+  gap: 2px;
+  color: var(--tg-theme-hint-color, #999);
+  text-align: center;
+}
+
+.tgui-admin-vehicle-choice strong {
+  color: var(--tg-theme-text-color, #000);
+  font-size: 13px;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.tgui-admin-vehicle-choice.is-selected strong {
+  color: var(--tg-theme-accent-text-color, var(--tg-theme-link-color, #2481cc));
+}
+
+.tgui-admin-vehicle-svg {
+  display: grid;
+  width: calc(100% - 4px);
+  max-width: 80px;
+  height: auto;
+  aspect-ratio: 2 / 1;
+  place-items: center;
+  color: currentColor;
+}
+
+.tgui-admin-vehicle-svg svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  color: inherit;
+}
+
+.tgui-admin-vehicle-svg-empty {
+  border-radius: 8px;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+
+
+.tgui-form-panel,
+.tgui-admin-form,
+.tgui-admin-form-grid {
+  display: grid;
+  gap: var(--app-panel-gap);
+  padding: var(--app-panel-padding-y) var(--app-panel-padding-x);
+}
+
+.tgui-form-panel-grid,
+.tgui-admin-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tgui-form-field,
+.tgui-admin-field {
+  display: grid;
+  min-width: 0;
+  gap: var(--app-section-gap);
+}
+
+.tgui-form-field-label,
+.tgui-admin-field-label {
+  color: var(--tg-theme-subtitle-text-color, var(--tg-theme-hint-color, #999));
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 500;
+}
+
+.tgui-form-toggle-row,
+.tgui-form-summary-row {
+  grid-column: 1 / -1;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--app-panel-gap);
+}
+
+.tgui-form-toggle-row {
+  min-height: 44px;
+}
+
+.tgui-form-summary-row {
+  color: var(--tg-theme-subtitle-text-color, var(--tg-theme-hint-color, #999));
+  font-size: 14px;
+}
+
+.tgui-form-summary-row strong {
+  color: var(--tg-theme-text-color, #000);
+  white-space: nowrap;
+}
+
+.tgui-form-full-row {
+  grid-column: 1 / -1;
+}
+
+.tgui-danger-secondary {
+  min-height: var(--app-control-height);
+  padding-inline: var(--app-space-16);
+  color: var(--tg-theme-destructive-text-color, #d14b4b);
+  background: color-mix(
+    in srgb,
+    var(--tg-theme-destructive-text-color, #d14b4b) 12%,
+    transparent
+  );
+}
+
+.tgui-danger-secondary:active {
+  background: color-mix(
+    in srgb,
+    var(--tg-theme-destructive-text-color, #d14b4b) 20%,
+    transparent
+  );
+}
+
+.tgui-admin-trip-sheet .tgui-actions {
+  margin-top: var(--app-panel-gap);
+}
+
+.tgui-admin-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tgui-admin-form-note {
+  padding: 0 var(--app-panel-padding-x) var(--app-panel-padding-y);
+  color: var(--tg-theme-subtitle-text-color, var(--tg-theme-hint-color, #999));
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.tgui-admin-edit-actions {
+  gap: var(--app-panel-gap);
+}
+
+.tgui-admin-cancel-trip {
+  color: var(--tg-theme-destructive-text-color, #d14b4b);
+}
+
+@media (max-width: 520px) {
+  .tgui-form-panel-grid,
+  .tgui-admin-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tgui-admin-template-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .tgui-admin-template-actions > :last-child {
+    justify-self: start;
+  }
+}
