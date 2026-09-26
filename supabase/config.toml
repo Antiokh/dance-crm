@@ -52,10 +52,3 @@ entrypoint = "./functions/text-diff/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/whoami/index.ts"
-
-
-[functions.schema-export-send]
-enabled = true
-verify_jwt = false
-import_map = "./functions/schema-export-send/deno.json"
-entrypoint = "./functions/schema-export-send/index.ts"
