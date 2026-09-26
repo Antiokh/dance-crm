@@ -1,16 +1,40 @@
-# Dance CRM
+# Dance CRM backend
 
-Dance school and social publishing platform.
+This repository is the backend source of truth for the Supabase project **DanceApp**.
 
-The first implementation phase focuses on a reusable social publishing subsystem for events and manual announcements. The wider CRM domain (groups, classes, memberships, passes, attendance, trainers, notifications) will be added after the publishing foundation is stable.
+The product/application architecture lives in `Antiokh/dancers`. The backend here implements that architecture and uses `Antiokh/supabase-project-starter` as the infrastructure baseline.
 
-## Current priorities
+## Source-of-truth rules
 
-1. Social publishing pipeline.
-2. Template-based poster rendering (square + Story).
-3. Event-driven announcements.
-4. Telegram announcement + poll flow.
-5. Weather-aware OpenAir publication logic.
-6. Later: school CRM for WCS / Hustle groups.
+- Persistent database changes: `supabase/migrations/`.
+- Edge Functions: `supabase/functions/`.
+- Generated live-database artifacts: `db/**` — audit/sync output, never hand-edit.
+- Product/domain architecture: `Antiokh/dancers/docs/**`.
+- TMA interaction patterns: `Antiokh/dobri-visarun`.
 
-See [`docs/architecture.md`](docs/architecture.md), [`docs/social-publishing.md`](docs/social-publishing.md), and [`docs/template-renderer.md`](docs/template-renderer.md).
+The live database remains authoritative for generated function/table snapshots. Git migrations and Edge Function sources are authoritative for intentional backend changes.
+
+## Infrastructure layers
+
+DanceApp uses separate infrastructure layers:
+
+1. SQL function history in `archive.function_history`.
+2. Table DDL history in `archive.table_history`.
+3. Durable Git publication queue with retry/dead recovery.
+4. Tokenized `github-send` Edge publication boundary.
+5. Scheduled change scan and bounded queue drain.
+6. Whole-schema JSON snapshot/export, separate from function/table history.
+7. Shared Edge runtime helpers and service-only debug logging.
+8. Telegram Mini App authentication based on the Dobri Visarun flow.
+
+Schema export and generated DB commits must not be treated as migration source.
+
+## Legacy baseline
+
+DanceApp predates this repository. Historical migrations before the Dancers rebuild do not reconstruct the original legacy schema from an empty database.
+
+The preserved pre-cleanup archive is in the private `Antiokh/dancers` repository under:
+
+`supabase/legacy-export/2026-09-26/`
+
+Do not restore that archive wholesale. It is evidence/recovery material; migrations in this repository define the forward backend.
