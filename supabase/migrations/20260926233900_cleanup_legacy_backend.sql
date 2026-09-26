@@ -3,7 +3,7 @@
 -- Removed: obsolete API-key auth, legacy Telegram SQL delivery queue, empty copied social delivery subsystem.
 -- The 10 public.event rows removed below are the archived prototype/seed rows created together on 2025-04-08.
 
-do $
+do $$
 declare
   v_job_id bigint;
 begin
@@ -22,7 +22,7 @@ begin
     end;
   end loop;
 end
-$;
+$$;
 
 drop trigger if exists tg_enqueue_telegram_message on public.telegram_messages;
 
