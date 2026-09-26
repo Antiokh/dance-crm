@@ -1,0 +1,22 @@
+project_id = "dance-crm"
+
+[api]
+enabled = true
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+major_version = 15
+
+[auth]
+enabled = true
+enable_signup = true
+enable_anonymous_sign_ins = false
+enable_manual_linking = false
+
+[functions.github-send]
+enabled = true
+verify_jwt = false
+import_map = "./functions/github-send/deno.json"
+entrypoint = "./functions/github-send/index.ts"
