@@ -29,7 +29,7 @@ Optional defaults:
 
 - `GITHUB_OWNER=Antiokh`
 - `GITHUB_REPO=dance-crm`
-- `GITHUB_BRANCH=main`
+- `GITHUB_BRANCH=supabase-export`
 
 Supabase runtime credentials are read from built-in
 `SUPABASE_SECRET_KEYS` / `SUPABASE_SERVICE_ROLE_KEY`.
@@ -52,3 +52,19 @@ Supabase export commits.
 
 Supabase GitHub Integration should be filtered independently so generated
 `db/**` commits do not cause unnecessary database deployment work.
+
+
+## Supabase GitHub Integration loop prevention
+
+Generated DB snapshots are published to the dedicated `supabase-export` branch,
+not to `main`.
+
+This prevents the production Supabase GitHub Integration from starting a deployment
+for commits produced by Supabase itself.
+
+If Automatic branching is enabled in Supabase, enable `Supabase changes only`.
+The export branch changes only `db/**`, so it should not create a Supabase preview
+branch.
+
+Cloudflare Pages still receives `[CF-Pages-Skip]` on generated commits, so preview
+builds from the export branch are skipped as well.

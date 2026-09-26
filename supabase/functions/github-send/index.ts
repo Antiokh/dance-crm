@@ -113,7 +113,7 @@ Deno.serve(async (request) => {
 
     const owner = optionalEnv('GITHUB_OWNER') || 'Antiokh'
     const repo = optionalEnv('GITHUB_REPO') || 'dance-crm'
-    const branch = optionalEnv('GITHUB_BRANCH') || 'main'
+    const branch = optionalEnv('GITHUB_BRANCH') || 'supabase-export'
     const octokit = new Octokit({ auth: requireEnv('GITHUB_TOKEN') })
 
     const path = `db/${payload.schema}/${payload.function_name}.sql`
