@@ -1,0 +1,5 @@
+-- Historical migration marker.
+-- This version already exists in the linked DanceApp remote migration history.
+-- Original legacy DDL is intentionally not replayed in dance-crm.
+-- Clean schema work starts after this reconciled history.
+-- Original migration: 20260926123920_improve_booking_visibility_and_rls_policies

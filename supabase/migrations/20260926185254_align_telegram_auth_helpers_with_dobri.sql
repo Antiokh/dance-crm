@@ -1,0 +1,5 @@
+-- Historical migration marker.
+-- This version already exists in the linked DanceApp remote migration history.
+-- Original legacy DDL is intentionally not replayed in dance-crm.
+-- Clean schema work starts after this reconciled history.
+-- Original migration: 20260926185254_align_telegram_auth_helpers_with_dobri

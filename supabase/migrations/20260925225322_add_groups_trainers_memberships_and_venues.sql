@@ -1,0 +1,5 @@
+-- Historical migration marker.
+-- This version already exists in the linked DanceApp remote migration history.
+-- Original legacy DDL is intentionally not replayed in dance-crm.
+-- Clean schema work starts after this reconciled history.
+-- Original migration: 20260925225322_add_groups_trainers_memberships_and_venues
