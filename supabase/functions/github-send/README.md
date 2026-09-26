@@ -1,6 +1,6 @@
 # github-send
 
-Internal publication boundary for generated SQL function snapshots.
+Internal publication boundary for generated SQL function snapshots and table-schema bundles.
 
 ## Caller
 
@@ -53,3 +53,22 @@ Supabase export commits.
 Supabase GitHub Integration should be filtered independently so generated
 `db/**` commits do not cause unnecessary database deployment work.
 
+
+
+## Table versioning
+
+Table DDL history uses the same durable queue and one-time publish-token boundary
+as function history.
+
+A table-bundle queue row contains a table-history revision marker. The service-only
+RPC resolves that marker to the current active table DDL for the schema, and
+`github-send` writes:
+
+`db/<schema>.sql`
+
+The scan job only detects/enqueues changes. A separate queue-drain job processes a
+small bounded batch every minute, preventing Git/network latency from making schema
+scans time out.
+
+ALTERs create new table-history versions. DROP creates a tombstone version and
+causes the next schema bundle to omit the dropped table.

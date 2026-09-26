@@ -1,7 +1,7 @@
 import { Octokit } from '@octokit'
 import { optionalEnv, requireEnv } from '../_shared/env.ts'
 
-type PublishPayload = {
+type FunctionPublishPayload = {
   schema: string
   function_name: string
   overloads: Array<{
@@ -9,6 +9,14 @@ type PublishPayload = {
     args: string
     return_type: string
     source_code: string
+  }>
+}
+
+type TablePublishPayload = {
+  schema: string
+  tables: Array<{
+    table_name: string
+    ddl: string
   }>
 }
 
@@ -22,7 +30,15 @@ function secretKey() {
   return requireEnv('SUPABASE_SERVICE_ROLE_KEY')
 }
 
-function buildGroupedContent(payload: PublishPayload) {
+function encodeUtf8Base64(input: string) {
+  return btoa(unescape(encodeURIComponent(input)))
+}
+
+function normalizeExportSql(input: string) {
+  return input.replace(/\r\n/g, '\n').replace(/\\n/g, '\n').trim()
+}
+
+function buildFunctionContent(payload: FunctionPublishPayload) {
   const header =
     `-- AUTO-GENERATED. DO NOT EDIT.\n` +
     `-- Source: live Supabase database function versioning\n` +
@@ -37,25 +53,37 @@ function buildGroupedContent(payload: PublishPayload) {
       `-- args: ${overload.args ?? ''}\n` +
       `-- returns: ${overload.return_type ?? ''}\n\n`
 
-    return overloadHeader + String(overload.source_code ?? '').trim()
+    return overloadHeader + normalizeExportSql(String(overload.source_code ?? ''))
   })
 
   return `${header}${blocks.join('\n\n')}\n`
 }
 
-function encodeUtf8Base64(input: string) {
-  return btoa(unescape(encodeURIComponent(input)))
+function buildTableContent(payload: TablePublishPayload) {
+  const header =
+    `-- AUTO-GENERATED. DO NOT EDIT.\n` +
+    `-- Source: live Supabase table DDL versioning\n` +
+    `-- Schema:   ${payload.schema}\n` +
+    `-- Entity:   tables\n` +
+    `-- Mode:     table_bundle\n` +
+    `-- Updated:  ${new Date().toISOString()}\n\n`
+
+  const blocks = payload.tables.map((table) => {
+    return `-- table: ${table.table_name}\n\n${normalizeExportSql(table.ddl)}`
+  })
+
+  return `${header}${blocks.join('\n\n')}\n`
 }
 
-async function getPublishPayload(
-  functionHistoryId: number,
-  publishToken: string,
-): Promise<PublishPayload> {
+async function callPayloadRpc(
+  rpcName: string,
+  rpcBody: Record<string, unknown>,
+): Promise<unknown> {
   const supabaseUrl = requireEnv('SUPABASE_URL').replace(/\/$/, '')
   const key = secretKey()
 
   const response = await fetch(
-    `${supabaseUrl}/rest/v1/rpc/get_function_publish_payload`,
+    `${supabaseUrl}/rest/v1/rpc/${rpcName}`,
     {
       method: 'POST',
       headers: {
@@ -63,21 +91,18 @@ async function getPublishPayload(
         apikey: key,
         Authorization: `Bearer ${key}`,
       },
-      body: JSON.stringify({
-        p_function_history_id: functionHistoryId,
-        p_publish_token: publishToken,
-      }),
+      body: JSON.stringify(rpcBody),
     },
   )
 
   const body = await response.text()
   if (!response.ok) {
     throw new Error(
-      `publish payload RPC failed (${response.status}): ${body.slice(0, 500)}`,
+      `${rpcName} RPC failed (${response.status}): ${body.slice(0, 500)}`,
     )
   }
 
-  return JSON.parse(body) as PublishPayload
+  return JSON.parse(body)
 }
 
 Deno.serve(async (request) => {
@@ -87,40 +112,83 @@ Deno.serve(async (request) => {
 
   try {
     const body = await request.json()
-    const functionHistoryId = Number(body?.function_history_id)
     const publishToken = String(body?.publish_token ?? '')
-
-    if (!Number.isSafeInteger(functionHistoryId) || functionHistoryId <= 0) {
-      return Response.json(
-        { error: 'invalid function_history_id' },
-        { status: 400 },
-      )
-    }
 
     if (!/^[0-9a-f-]{36}$/i.test(publishToken)) {
       return Response.json({ error: 'invalid publish_token' }, { status: 400 })
     }
 
-    const payload = await getPublishPayload(functionHistoryId, publishToken)
+    const functionHistoryId = Number(body?.function_history_id)
+    const tableHistoryId = Number(body?.table_history_id)
 
-    if (
-      !payload?.schema ||
-      !payload?.function_name ||
-      !Array.isArray(payload.overloads)
-    ) {
-      throw new Error('invalid publish payload')
+    const hasFunctionId =
+      Number.isSafeInteger(functionHistoryId) && functionHistoryId > 0
+    const hasTableId =
+      Number.isSafeInteger(tableHistoryId) && tableHistoryId > 0
+
+    if (hasFunctionId === hasTableId) {
+      return Response.json(
+        { error: 'provide exactly one publication id' },
+        { status: 400 },
+      )
+    }
+
+    let path: string
+    let content: string
+    let commitMessage: string
+    let mode: 'function' | 'table_bundle'
+    let items: number
+
+    if (hasFunctionId) {
+      const payload = await callPayloadRpc(
+        'get_function_publish_payload',
+        {
+          p_function_history_id: functionHistoryId,
+          p_publish_token: publishToken,
+        },
+      ) as FunctionPublishPayload
+
+      if (
+        !payload?.schema ||
+        !payload?.function_name ||
+        !Array.isArray(payload.overloads)
+      ) {
+        throw new Error('invalid function publish payload')
+      }
+
+      path = `db/${payload.schema}/${payload.function_name}.sql`
+      content = buildFunctionContent(payload)
+      items = payload.overloads.length
+      mode = 'function'
+      commitMessage =
+        `[CF-Pages-Skip] sql function update: ${payload.schema}.${payload.function_name} ` +
+        `(${items} overload${items === 1 ? '' : 's'})`
+    } else {
+      const payload = await callPayloadRpc(
+        'get_table_publish_payload',
+        {
+          p_table_history_id: tableHistoryId,
+          p_publish_token: publishToken,
+        },
+      ) as TablePublishPayload
+
+      if (!payload?.schema || !Array.isArray(payload.tables)) {
+        throw new Error('invalid table publish payload')
+      }
+
+      path = `db/${payload.schema}.sql`
+      content = buildTableContent(payload)
+      items = payload.tables.length
+      mode = 'table_bundle'
+      commitMessage =
+        `[CF-Pages-Skip] sql tables update: ${payload.schema} ` +
+        `(${items} table${items === 1 ? '' : 's'})`
     }
 
     const owner = optionalEnv('GITHUB_OWNER') || 'Antiokh'
     const repo = optionalEnv('GITHUB_REPO') || 'dance-crm'
     const branch = optionalEnv('GITHUB_BRANCH') || 'main'
     const octokit = new Octokit({ auth: requireEnv('GITHUB_TOKEN') })
-
-    const path = `db/${payload.schema}/${payload.function_name}.sql`
-    const content = buildGroupedContent(payload)
-    const commitMessage =
-      `[CF-Pages-Skip] sql function update: ${payload.schema}.${payload.function_name} ` +
-      `(${payload.overloads.length} overload${payload.overloads.length === 1 ? '' : 's'})`
 
     let sha: string | undefined
 
@@ -152,8 +220,9 @@ Deno.serve(async (request) => {
 
     return Response.json({
       ok: true,
+      mode,
       path,
-      overloads: payload.overloads.length,
+      items,
       commit: result.data.commit.sha,
       message: commitMessage,
     })
