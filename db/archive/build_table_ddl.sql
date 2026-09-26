@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   archive
 -- Function: build_table_ddl
--- Updated:  2026-09-26T21:41:00.445Z
+-- Updated:  2026-09-26T22:01:06.065Z
 
 -- overload
 -- language: plpgsql
@@ -12,6 +12,7 @@
 CREATE OR REPLACE FUNCTION archive.build_table_ddl(table_name text, schema_name text DEFAULT 'public'::text)
  RETURNS text
  LANGUAGE plpgsql
+ SET search_path TO 'pg_catalog', 'archive', 'public', 'extensions'
 AS $function$
 DECLARE
   v_table_oid oid;
