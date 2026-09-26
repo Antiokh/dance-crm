@@ -1,0 +1,30 @@
+:root {
+  /* Telegram has no dedicated input-border token. Section separators can be
+     much too strong in custom themes, so form controls derive their outline
+     from hint_color instead. */
+  --app-input-border: color-mix(in srgb, var(--app-hint) 42%, transparent);
+  --app-input-border-focus: var(--app-accent);
+}
+
+.form-grid input:not([type="checkbox"]),
+.form-grid select {
+  border-color: var(--app-input-border);
+  background: transparent;
+  color: var(--app-text);
+  caret-color: var(--app-accent);
+}
+
+.form-grid input:not([type="checkbox"]):focus,
+.form-grid select:focus {
+  border-color: var(--app-input-border-focus);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--app-input-border-focus) 28%, transparent);
+}
+
+.form-grid input::placeholder {
+  color: var(--app-hint);
+  opacity: 1;
+}
+
+.form-grid input:read-only {
+  color: var(--app-subtitle);
+}
