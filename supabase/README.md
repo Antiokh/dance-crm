@@ -1,46 +1,40 @@
-# Supabase
+# Supabase / DanceApp
 
-This project is migration-first.
+Remote project: `DanceApp` (`acmgtkethcijxgldrfgw`).
 
-## Source of truth
+This repository is migration-first and is the backend source of truth for that project.
 
-Runtime database changes must be committed as timestamped files under:
+## Persistent changes
+
+All intentional database changes are timestamped files under:
 
 `supabase/migrations/`
 
-Do not make persistent production schema changes in the Dashboard without pulling
-them back into a migration immediately.
+Do not hand-edit generated `db/**` snapshots. They are published from the live database by the versioning/export infrastructure.
 
-Generated SQL function snapshots under `db/` are audit artifacts and are not
-hand-edited source.
+## Current infrastructure
 
-## GitHub Integration
+- function history: `archive.function_history`;
+- table history: `archive.table_history`;
+- durable publication queue: `archive.github_push_queue`;
+- queue recovery helpers and bounded cron processing;
+- tokenized `github-send` Edge Function;
+- whole-schema snapshots: `archive.schema_export_snapshots`;
+- service-only `public.debug_events`;
+- Telegram auth Edge Function and shared initData validator.
 
-Supabase Project Settings -> Integrations -> GitHub:
+Function/table history and whole-schema export are intentionally separate workflows.
 
-- Repository: `Antiokh/dance-crm`
-- Working directory: `.`
-- Production branch: `main`
-- Deploy to production: enabled
-- Automatic branching: enable if preview branches are desired
-- Supabase changes only: recommended
+## Security boundary
 
-Supabase applies only migrations not yet present in the target branch migration
-history. Edge Functions declared in `config.toml` are deployed from Git.
+- browser code never receives service-role credentials;
+- `github-send` has `verify_jwt=false` only because every publication request is authorized by a one-time DB-issued token and payload RPC;
+- schema export cannot choose an arbitrary Git path;
+- operational archive/debug objects are revoked from `anon` and `authenticated`;
+- Telegram launch data is validated server-side before a Supabase Auth session is established.
 
-## Function versioning
+## Historical baseline
 
-The first infrastructure migration installs:
+The live project predates Git migration history. The pre-cleanup archive is preserved in private `Antiokh/dancers/supabase/legacy-export/2026-09-26/`.
 
-- `archive.function_history`
-- change detection helpers
-- durable Git publication queue
-- recovery helpers
-- service-only publication payload RPC
-
-`github-send` writes generated snapshots to:
-
-`db/<schema>/<function_name>.sql`
-
-Cron is intentionally installed in a later migration after the manual publication
-path has been verified on production.
+A clean empty-project bootstrap needs an explicit baseline/squash step; do not assume the historical migration chain alone reconstructs the original database.
