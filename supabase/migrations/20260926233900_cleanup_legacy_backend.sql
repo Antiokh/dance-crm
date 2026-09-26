@@ -3,7 +3,7 @@
 -- Removed: obsolete API-key auth, legacy Telegram SQL delivery queue, empty copied social delivery subsystem.
 -- The 10 public.event rows removed below are the archived prototype/seed rows created together on 2025-04-08.
 
-do $$
+do $
 declare
   v_job_id bigint;
 begin
@@ -14,21 +14,53 @@ begin
        or command ilike '%process_telegram_message%'
        or command ilike '%keepalive_telegram_message%'
   loop
-    perform cron.unschedule(v_job_id);
+    begin
+      perform cron.unschedule(v_job_id);
+    exception
+      when insufficient_privilege then
+        raise notice 'cron job % could not be unscheduled by this deployment role; legacy entrypoint will be retired to a no-op', v_job_id;
+    end;
   end loop;
 end
-$$;
+$;
 
 drop trigger if exists tg_enqueue_telegram_message on public.telegram_messages;
 
 drop function if exists public.enqueue_telegram_message();
-drop function if exists public.keepalive_telegram_message();
-drop function if exists public.process_telegram_message();
 drop function if exists public.queue_telegram_message();
 drop function if exists public.queue_unsent_messages();
 drop function if exists public.telegram_send_with_miniapp(text, text, text);
 drop function if exists public.telegram_send_message(text, text, jsonb, text);
 drop function if exists public.telegram_call(text, jsonb);
+
+-- Keep these two entrypoints as pinned no-ops until the old pg_cron rows are
+-- confirmed deleted. This avoids a per-minute error loop if the deployment
+-- role cannot mutate cron.job.
+create or replace function public.process_telegram_message()
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+begin
+  return;
+end;
+$function$;
+
+create or replace function public.keepalive_telegram_message()
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+begin
+  return;
+end;
+$function$;
+
+revoke all on function public.process_telegram_message() from public, anon, authenticated;
+revoke all on function public.keepalive_telegram_message() from public, anon, authenticated;
+
 drop function if exists public.get_or_create_dancer_by_telegram_id(integer);
 drop function if exists public.get_api_random_user();
 drop function if exists public.set_dancer(uuid, text, boolean);
