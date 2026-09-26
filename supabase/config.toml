@@ -20,3 +20,35 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/github-send/deno.json"
 entrypoint = "./functions/github-send/index.ts"
+
+[functions.telegram-auth]
+enabled = true
+verify_jwt = false
+import_map = "./functions/telegram-auth/deno.json"
+entrypoint = "./functions/telegram-auth/index.ts"
+
+[functions.debug-log]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/debug-log/index.ts"
+
+[functions.env-debug]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/env-debug/index.ts"
+
+[functions.test-cors]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/test-cors/index.ts"
+
+[functions.text-diff]
+enabled = true
+verify_jwt = true
+import_map = "./functions/text-diff/deno.json"
+entrypoint = "./functions/text-diff/index.ts"
+
+[functions.whoami]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/whoami/index.ts"

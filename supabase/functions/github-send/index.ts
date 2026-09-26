@@ -20,6 +20,12 @@ type TablePublishPayload = {
   }>
 }
 
+type SchemaExportPayload = {
+  path: string
+  content: string
+  message: string
+}
+
 function secretKey() {
   const encoded = Deno.env.get('SUPABASE_SECRET_KEYS')?.trim()
   if (encoded) {
@@ -120,13 +126,19 @@ Deno.serve(async (request) => {
 
     const functionHistoryId = Number(body?.function_history_id)
     const tableHistoryId = Number(body?.table_history_id)
+    const schemaExportId = Number(body?.schema_export_id)
 
     const hasFunctionId =
       Number.isSafeInteger(functionHistoryId) && functionHistoryId > 0
     const hasTableId =
       Number.isSafeInteger(tableHistoryId) && tableHistoryId > 0
+    const hasSchemaExportId =
+      Number.isSafeInteger(schemaExportId) && schemaExportId > 0
 
-    if (hasFunctionId === hasTableId) {
+    const publicationKinds = [hasFunctionId, hasTableId, hasSchemaExportId]
+      .filter(Boolean).length
+
+    if (publicationKinds !== 1) {
       return Response.json(
         { error: 'provide exactly one publication id' },
         { status: 400 },
@@ -136,7 +148,7 @@ Deno.serve(async (request) => {
     let path: string
     let content: string
     let commitMessage: string
-    let mode: 'function' | 'table_bundle'
+    let mode: 'function' | 'table_bundle' | 'schema_export'
     let items: number
 
     if (hasFunctionId) {
@@ -163,7 +175,7 @@ Deno.serve(async (request) => {
       commitMessage =
         `[CF-Pages-Skip] sql function update: ${payload.schema}.${payload.function_name} ` +
         `(${items} overload${items === 1 ? '' : 's'})`
-    } else {
+    } else if (hasTableId) {
       const payload = await callPayloadRpc(
         'get_table_publish_payload',
         {
@@ -183,6 +195,28 @@ Deno.serve(async (request) => {
       commitMessage =
         `[CF-Pages-Skip] sql tables update: ${payload.schema} ` +
         `(${items} table${items === 1 ? '' : 's'})`
+    } else {
+      const payload = await callPayloadRpc(
+        'get_schema_export_publish_payload',
+        {
+          p_snapshot_id: schemaExportId,
+          p_publish_token: publishToken,
+        },
+      ) as SchemaExportPayload
+
+      if (
+        payload?.path !== 'db/ddl.json' ||
+        typeof payload.content !== 'string' ||
+        typeof payload.message !== 'string'
+      ) {
+        throw new Error('invalid schema export publish payload')
+      }
+
+      path = payload.path
+      content = payload.content
+      items = 1
+      mode = 'schema_export'
+      commitMessage = payload.message
     }
 
     const owner = optionalEnv('GITHUB_OWNER') || 'Antiokh'
