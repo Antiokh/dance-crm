@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   archive
 -- Function: update_functions
--- Updated:  2026-09-26T20:50:08.139Z
+-- Updated:  2026-09-26T22:01:17.910Z
 
 -- overload
 -- language: plpgsql
@@ -12,6 +12,7 @@
 CREATE OR REPLACE FUNCTION archive.update_functions(schema_name text DEFAULT 'public'::text)
  RETURNS TABLE(function_history_id bigint, schema text, function_name text, args text, return_type text)
  LANGUAGE plpgsql
+ SET search_path TO 'pg_catalog', 'archive', 'public', 'extensions'
 AS $function$
 declare
   function_record record;
