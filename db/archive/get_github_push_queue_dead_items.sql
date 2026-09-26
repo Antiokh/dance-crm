@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   archive
 -- Function: get_github_push_queue_dead_items
--- Updated:  2026-09-26T20:33:21.022Z
+-- Updated:  2026-09-26T20:50:17.332Z
 
 -- overload
 -- language: sql
@@ -14,20 +14,20 @@ CREATE OR REPLACE FUNCTION archive.get_github_push_queue_dead_items(p_limit inte
  LANGUAGE sql
  STABLE
 AS $function$
-    select
-        q.id,
-        q.function_history_id,
-        fh.schema_name,
-        fh.function_name,
-        fh.args,
-        fh.return_type,
-        q.try_count,
-        q.last_error,
-        q.created_at
-    from archive.github_push_queue q
-    join archive.function_history fh
-      on fh.id = q.function_history_id
-    where q.status = 'dead'
-    order by q.id desc
-    limit p_limit;
+  select
+    q.id,
+    q.function_history_id,
+    fh.schema_name,
+    fh.function_name,
+    fh.args,
+    fh.return_type,
+    q.try_count,
+    q.last_error,
+    q.created_at
+  from archive.github_push_queue q
+  join archive.function_history fh
+    on fh.id = q.function_history_id
+  where q.status = 'dead'
+  order by q.id desc
+  limit p_limit;
 $function$
