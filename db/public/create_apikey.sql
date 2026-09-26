@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   public
 -- Function: create_apikey
--- Updated:  2026-09-26T20:35:05.515Z
+-- Updated:  2026-09-26T20:35:06.883Z
 
 -- overload
 -- language: plpgsql
