@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   archive
 -- Function: setup_table_history
--- Updated:  2026-09-26T21:42:01.606Z
+-- Updated:  2026-09-26T22:01:32.659Z
 
 -- overload
 -- language: plpgsql
@@ -12,6 +12,7 @@
 CREATE OR REPLACE FUNCTION archive.setup_table_history(schema_name text DEFAULT 'public'::text)
  RETURNS void
  LANGUAGE plpgsql
+ SET search_path TO 'pg_catalog', 'archive', 'public', 'extensions'
 AS $function$
 DECLARE
   table_record record;
