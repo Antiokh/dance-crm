@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   archive
 -- Function: save_table_history
--- Updated:  2026-09-26T21:41:05.831Z
+-- Updated:  2026-09-26T22:01:31.380Z
 
 -- overload
 -- language: plpgsql
@@ -13,7 +13,7 @@ CREATE OR REPLACE FUNCTION archive.save_table_history(p_table_name text, p_ddl t
  RETURNS void
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'public', 'archive'
+ SET search_path TO 'pg_catalog', 'archive', 'public', 'extensions'
 AS $function$
 declare
     v_prev_id bigint;
