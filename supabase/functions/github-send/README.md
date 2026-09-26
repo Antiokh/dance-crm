@@ -41,3 +41,14 @@ Generated files are written to:
 `db/<schema>/<function_name>.sql`
 
 Those files are generated artifacts and must not be edited manually.
+
+
+## Cloudflare Pages
+
+Generated commits are prefixed with `[CF-Pages-Skip]`.
+
+Cloudflare Pages recognizes this prefix and skips the deployment for the commit,
+so automatic database snapshot publication does not rebuild the frontend.
+
+As a second layer, configure Pages Build watch paths to exclude `db/*` and
+`supabase/*` once the Pages project is connected.
