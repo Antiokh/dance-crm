@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   public
 -- Function: keepalive_telegram_message
--- Updated:  2026-09-26T20:34:26.795Z
+-- Updated:  2026-09-26T22:01:44.299Z
 
 -- overload
 -- language: plpgsql
@@ -13,10 +13,9 @@ CREATE OR REPLACE FUNCTION public.keepalive_telegram_message()
  RETURNS void
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'pg_catalog', 'public', 'extensions', 'pgmq', 'vault'
+ SET search_path TO ''
 AS $function$
 begin
-    insert into telegram_messages (chat_id, message_markdown)
-    values (268170503, 'keep-alive message');
+  return;
 end;
 $function$
