@@ -15,7 +15,8 @@ import type {
   DanceStyle,
   DancerSummary,
 } from './lib/dancerContext'
-import { getTmaDiagnostics } from './lib/tma'
+import { getTelegramUser } from './lib/telegram'
+import { getNativeTelegramUser, getTmaDiagnostics } from './lib/tma'
 
 const initialAuth: AuthState = {
   status: 'preview',
@@ -50,6 +51,25 @@ function initials(dancer: DancerSummary) {
     .slice(0, 2)
 }
 
+function telegramDisplayName(user: ReturnType<typeof getTelegramUser>) {
+  if (!user) return 'Dancers'
+  const fullName = [user.first_name, user.last_name]
+    .filter(Boolean)
+    .join(' ')
+    .trim()
+  return fullName || (user.username ? `@${user.username}` : 'Dancers')
+}
+
+function telegramInitials(user: ReturnType<typeof getTelegramUser>) {
+  if (!user) return 'D'
+  const value = [user.first_name, user.last_name]
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part?.trim().charAt(0).toUpperCase() ?? '')
+    .join('')
+  return value || user.username?.slice(0, 2).toUpperCase() || 'D'
+}
+
 function styleTitle(style: DanceStyle) {
   return (
     style.title_ru?.trim() ||
@@ -60,6 +80,10 @@ function styleTitle(style: DanceStyle) {
 }
 
 export default function App() {
+  const telegramUser = useMemo(
+    () => getNativeTelegramUser() ?? getTelegramUser(),
+    [],
+  )
   const [auth, setAuth] = useState<AuthState>(initialAuth)
   const [loading, setLoading] = useState(true)
 
@@ -91,8 +115,8 @@ export default function App() {
       : null
 
   const name = useMemo(
-    () => dancer ? displayName(dancer) : 'Dancers',
-    [dancer],
+    () => dancer ? displayName(dancer) : telegramDisplayName(telegramUser),
+    [dancer, telegramUser],
   )
 
   return (
@@ -105,17 +129,31 @@ export default function App() {
           <h1>Профиль</h1>
         </div>
 
-        {dancer ? (
+        {dancer || telegramUser ? (
           <div className="account-area">
             <div className="account-trigger">
               <span className="account-copy">
                 <strong>{name}</strong>
                 <span>
-                  {auth.context.roles.map((role) => roleLabels[role]).join(' · ')}
+                  {loading
+                    ? 'Вход…'
+                    : auth.status === 'authenticated'
+                      ? auth.context.roles.map((role) => roleLabels[role]).join(' · ')
+                      : 'Telegram'}
                 </span>
               </span>
               <span className="avatar" aria-hidden="true">
-                {initials(dancer)}
+                {telegramUser?.photo_url ? (
+                  <img
+                    src={telegramUser.photo_url}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                  />
+                ) : dancer ? (
+                  initials(dancer)
+                ) : (
+                  telegramInitials(telegramUser)
+                )}
               </span>
             </div>
           </div>

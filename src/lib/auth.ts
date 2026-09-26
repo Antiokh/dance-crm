@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js'
-import { loadMyDancerContext, type DancerContext } from './dancerContext'
+import { loadMyDancerContext, parseDancerContext, type DancerContext } from './dancerContext'
 import { supabase } from './supabase'
 import {
   getNativeTelegramUser,
@@ -15,6 +15,7 @@ type TelegramAuthResponse = {
   auth_email?: string
   auth_password?: string
   dancer_id?: string
+  context?: unknown
   error?: string
 }
 
@@ -140,7 +141,9 @@ export async function authenticateTelegram(): Promise<AuthState> {
     return {
       status: 'authenticated',
       session: signInData.session,
-      context: await loadMyDancerContext(),
+      context: data.context
+        ? parseDancerContext(data.context)
+        : await loadMyDancerContext(),
       error: null,
     }
   } catch (error) {
