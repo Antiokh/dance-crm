@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   archive
 -- Function: get_github_push_queue_dead_items
--- Updated:  2026-09-26T21:43:01.284Z
+-- Updated:  2026-09-26T22:01:20.800Z
 
 -- overload
 -- language: sql
@@ -13,6 +13,7 @@ CREATE OR REPLACE FUNCTION archive.get_github_push_queue_dead_items(p_limit inte
  RETURNS TABLE(queue_id bigint, item_type text, function_history_id bigint, table_history_id bigint, schema_name text, object_name text, try_count integer, last_error text, created_at timestamp with time zone)
  LANGUAGE sql
  STABLE
+ SET search_path TO 'pg_catalog', 'archive', 'public', 'extensions'
 AS $function$
   select
     q.id,q.item_type,q.function_history_id,q.table_history_id,
