@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   archive
 -- Function: retry_dead_github_push_queue
--- Updated:  2026-09-26T20:50:10.972Z
+-- Updated:  2026-09-26T22:01:23.689Z
 
 -- overload
 -- language: plpgsql
@@ -12,6 +12,7 @@
 CREATE OR REPLACE FUNCTION archive.retry_dead_github_push_queue(p_requeue_limit integer DEFAULT 100, p_process_limit integer DEFAULT 20)
  RETURNS integer
  LANGUAGE plpgsql
+ SET search_path TO 'pg_catalog', 'archive', 'public', 'extensions'
 AS $function$
 declare
   v_requeued integer;
