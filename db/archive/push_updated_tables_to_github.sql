@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   archive
 -- Function: push_updated_tables_to_github
--- Updated:  2026-09-26T21:43:03.427Z
+-- Updated:  2026-09-26T22:01:37.769Z
 
 -- overload
 -- language: plpgsql
@@ -12,6 +12,7 @@
 CREATE OR REPLACE FUNCTION archive.push_updated_tables_to_github(p_schema text DEFAULT 'public'::text, p_immediate_limit integer DEFAULT 0)
  RETURNS integer
  LANGUAGE plpgsql
+ SET search_path TO 'pg_catalog', 'archive', 'public', 'extensions'
 AS $function$
 declare
   v_count integer;
