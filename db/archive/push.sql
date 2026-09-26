@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   archive
 -- Function: push
--- Updated:  2026-09-26T20:33:25.186Z
+-- Updated:  2026-09-26T20:50:12.461Z
 
 -- overload
 -- language: plpgsql
@@ -14,8 +14,8 @@ CREATE OR REPLACE FUNCTION archive.push()
  LANGUAGE plpgsql
 AS $function$
 begin
-    perform archive.push_updated_functions_to_github('archive');
-    perform archive.push_updated_functions_to_github('private');
-    perform archive.push_updated_functions_to_github('public');
+  perform archive.push_updated_functions_to_github('archive');
+  perform archive.push_updated_functions_to_github('private');
+  perform archive.push_updated_functions_to_github('public');
 end;
 $function$
