@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   archive
 -- Function: retry_dead_github_push_queue
--- Updated:  2026-09-26T20:33:19.724Z
+-- Updated:  2026-09-26T20:50:10.972Z
 
 -- overload
 -- language: plpgsql
@@ -14,14 +14,14 @@ CREATE OR REPLACE FUNCTION archive.retry_dead_github_push_queue(p_requeue_limit 
  LANGUAGE plpgsql
 AS $function$
 declare
-    v_requeued integer;
+  v_requeued integer;
 begin
-    v_requeued := archive.requeue_dead_github_push_queue(p_requeue_limit);
+  v_requeued := archive.requeue_dead_github_push_queue(p_requeue_limit);
 
-    if v_requeued > 0 then
-        perform archive.process_github_push_queue(p_process_limit);
-    end if;
+  if v_requeued > 0 then
+    perform archive.process_github_push_queue(p_process_limit);
+  end if;
 
-    return v_requeued;
+  return v_requeued;
 end;
 $function$
