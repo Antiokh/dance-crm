@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   archive
 -- Function: github_push_queue_summary
--- Updated:  2026-09-26T20:33:11.435Z
+-- Updated:  2026-09-26T20:50:03.863Z
 
 -- overload
 -- language: sql
@@ -14,13 +14,13 @@ CREATE OR REPLACE FUNCTION archive.github_push_queue_summary()
  LANGUAGE sql
  STABLE
 AS $function$
-    select
-        q.status,
-        count(*) as item_count,
-        min(q.created_at),
-        max(q.created_at),
-        max(q.try_count)
-    from archive.github_push_queue q
-    group by q.status
-    order by q.status;
+  select
+    q.status,
+    count(*),
+    min(q.created_at),
+    max(q.created_at),
+    max(q.try_count)
+  from archive.github_push_queue q
+  group by q.status
+  order by q.status;
 $function$
