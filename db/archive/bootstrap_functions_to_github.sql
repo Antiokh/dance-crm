@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   archive
 -- Function: bootstrap_functions_to_github
--- Updated:  2026-09-26T20:33:23.793Z
+-- Updated:  2026-09-26T20:50:20.850Z
 
 -- overload
 -- language: plpgsql
@@ -14,21 +14,21 @@ CREATE OR REPLACE FUNCTION archive.bootstrap_functions_to_github(p_schema text D
  LANGUAGE plpgsql
 AS $function$
 declare
-    v_count integer;
+  v_count integer;
 begin
-    insert into archive.github_push_queue(function_history_id)
-    select id
-    from archive.function_history
-    where schema_name = p_schema
-      and active = true
-    on conflict (function_history_id) do nothing;
+  insert into archive.github_push_queue(function_history_id)
+  select id
+  from archive.function_history
+  where schema_name = p_schema
+    and active = true
+  on conflict (function_history_id) do nothing;
 
-    get diagnostics v_count = row_count;
+  get diagnostics v_count = row_count;
 
-    if p_immediate_limit > 0 then
-      perform archive.process_github_push_queue(p_immediate_limit);
-    end if;
+  if p_immediate_limit > 0 then
+    perform archive.process_github_push_queue(p_immediate_limit);
+  end if;
 
-    return v_count;
+  return v_count;
 end;
 $function$
