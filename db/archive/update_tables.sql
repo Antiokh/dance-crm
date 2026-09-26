@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   archive
 -- Function: update_tables
--- Updated:  2026-09-26T21:42:05.384Z
+-- Updated:  2026-09-26T22:01:35.271Z
 
 -- overload
 -- language: plpgsql
@@ -12,6 +12,7 @@
 CREATE OR REPLACE FUNCTION archive.update_tables(p_schema_name text DEFAULT 'public'::text)
  RETURNS TABLE(table_history_id bigint, schema_name text, table_name text)
  LANGUAGE plpgsql
+ SET search_path TO 'pg_catalog', 'archive', 'public', 'extensions'
 AS $function$
 declare
     v_table record;
