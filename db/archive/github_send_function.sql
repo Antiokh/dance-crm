@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   archive
 -- Function: github_send_function
--- Updated:  2026-09-26T20:50:14.866Z
+-- Updated:  2026-09-26T22:01:26.164Z
 
 -- overload
 -- language: plpgsql
@@ -12,6 +12,7 @@
 CREATE OR REPLACE FUNCTION archive.github_send_function(p_function_history_id bigint)
  RETURNS void
  LANGUAGE plpgsql
+ SET search_path TO 'pg_catalog', 'archive', 'public', 'extensions'
 AS $function$
 declare
   v_publish_token uuid;
