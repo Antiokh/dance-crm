@@ -45,16 +45,10 @@ Those files are generated artifacts and must not be edited manually.
 
 ## Cloudflare Pages
 
-Generated commits are prefixed with `[supabase-export]`.
+Generated commits are prefixed with `[CF-Pages-Skip]`.
 
-The prefix is provider-neutral metadata marking generated Supabase export commits.
+Cloudflare Pages recognizes this prefix and skips the deployment for generated
+Supabase export commits.
 
-Cloudflare Pages does not support registering arbitrary custom commit-message skip
-prefixes, so configure Build watch paths instead:
-
-- include: `*`
-- exclude: `db/*`
-
-Cloudflare's `*` wildcard matches nested paths, so this excludes all generated DB
-snapshot files while still allowing a build when the same push changes frontend
-source.
+Supabase GitHub Integration should be filtered independently so generated
+`db/**` commits do not cause unnecessary database deployment work.
