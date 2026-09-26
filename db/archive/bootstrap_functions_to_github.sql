@@ -2,28 +2,28 @@
 -- Source: live Supabase database function versioning
 -- Schema:   archive
 -- Function: bootstrap_functions_to_github
--- Updated:  2026-09-26T20:50:20.850Z
+-- Updated:  2026-09-26T21:41:04.685Z
 
 -- overload
 -- language: plpgsql
--- args: p_schema text DEFAULT 'public'::text, p_immediate_limit integer DEFAULT 50
+-- args: p_schema text DEFAULT 'public'::text, p_immediate_limit integer DEFAULT 0
 -- returns: integer
 
-CREATE OR REPLACE FUNCTION archive.bootstrap_functions_to_github(p_schema text DEFAULT 'public'::text, p_immediate_limit integer DEFAULT 50)
+CREATE OR REPLACE FUNCTION archive.bootstrap_functions_to_github(p_schema text DEFAULT 'public'::text, p_immediate_limit integer DEFAULT 0)
  RETURNS integer
  LANGUAGE plpgsql
 AS $function$
 declare
   v_count integer;
 begin
-  insert into archive.github_push_queue(function_history_id)
-  select id
+  insert into archive.github_push_queue(item_type,function_history_id)
+  select 'function',id
   from archive.function_history
-  where schema_name = p_schema
-    and active = true
+  where schema_name=p_schema
+    and active=true
   on conflict (function_history_id) do nothing;
 
-  get diagnostics v_count = row_count;
+  get diagnostics v_count=row_count;
 
   if p_immediate_limit > 0 then
     perform archive.process_github_push_queue(p_immediate_limit);
