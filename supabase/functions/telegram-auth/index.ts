@@ -45,91 +45,33 @@ Deno.serve(async (request) => {
     // returned once to the client for the immediate signInWithPassword call.
     const authPassword = generateAuthPassword()
 
-    const { data: existingDancer, error: dancerLookupError } = await supabase
-      .from('dancer')
-      .select('id, auth_user_id, telegram_id')
-      .eq('telegram_id', telegramId)
-      .maybeSingle()
-
-    if (dancerLookupError) throw dancerLookupError
-
-    let userId: string
-    let created = false
-
-    if (existingDancer?.auth_user_id) {
-      userId = existingDancer.auth_user_id
-      const { error: passwordError } = await supabase.rpc('update_user_password', {
-        p_user_id: userId,
-        p_new_password: authPassword,
-      })
-      if (passwordError) throw passwordError
-    } else {
-      const metadata = {
-        telegram_id: telegramId,
-        first_name: telegramUser.first_name ?? null,
-        last_name: telegramUser.last_name ?? null,
-        full_name: fullName || telegramUser.username || '',
-        username: telegramUser.username ?? null,
-        language_code: telegramUser.language_code ?? null,
-      }
-
-      const { data: newUserId, error: createError } = await supabase.rpc(
-        'create_user_telegram_metadata',
-        {
-          telegram_id: telegramId,
-          password: authPassword,
-          user_meta_data: metadata,
-        },
-      )
-
-      if (createError) throw createError
-      if (!newUserId) throw new Error('Failed to create Supabase user')
-      userId = newUserId
-      created = true
+    const metadata = {
+      telegram_id: telegramId,
+      first_name: telegramUser.first_name ?? null,
+      last_name: telegramUser.last_name ?? null,
+      full_name: fullName || telegramUser.username || '',
+      username: telegramUser.username ?? null,
+      language_code: telegramUser.language_code ?? null,
     }
 
-    const { data: ensuredDancer, error: ensureError } = await supabase.rpc(
-      'ensure_dancer_exists',
+    const { data: bootstrap, error: bootstrapError } = await supabase.rpc(
+      'telegram_auth_bootstrap',
       {
-        p_user_id: userId,
+        p_telegram_id: telegramId,
+        p_password: authPassword,
+        p_user_meta_data: metadata,
       },
     )
-    if (ensureError) throw ensureError
-    if (!ensuredDancer?.id) throw new Error('Failed to ensure dancer profile')
 
-    // Telegram identity fields are refreshed on every validated launch.
-    const { error: syncDancerError } = await supabase
-      .from('dancer')
-      .update({
-        telegram_username: telegramUser.username ?? null,
-        first_name: telegramUser.first_name ?? null,
-        last_name: telegramUser.last_name ?? null,
-        lang_code: telegramUser.language_code ?? ensuredDancer.lang_code ?? 'en',
-      })
-      .eq('id', ensuredDancer.id)
-    if (syncDancerError) throw syncDancerError
-
-    const { data: dancer, error: dancerError } = await supabase
-      .from('dancer')
-      .select('id, auth_user_id, telegram_id, telegram_username, first_name, last_name, custom_name, lang_code, premium, primary_role')
-      .eq('id', ensuredDancer.id)
-      .single()
-    if (dancerError) throw dancerError
-
-    const { data: roleRows, error: rolesError } = await supabase
-      .from('dancer_app_roles')
-      .select('role')
-      .eq('dancer_id', dancer.id)
-    if (rolesError) throw rolesError
+    if (bootstrapError) throw bootstrapError
+    if (!bootstrap || typeof bootstrap !== 'object') {
+      throw new Error('Telegram auth bootstrap returned no context')
+    }
 
     return json({
       valid: true,
-      created,
-      auth_email: `${telegramId}@t.me`,
       auth_password: authPassword,
-      dancer_id: dancer.id,
-      profile: dancer,
-      roles: (roleRows ?? []).map((row) => row.role),
+      ...bootstrap,
     })
   } catch (error) {
     console.error('telegram-auth failed', error)
