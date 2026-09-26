@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   archive
 -- Function: redact_function_source
--- Updated:  2026-09-26T20:33:09.926Z
+-- Updated:  2026-09-26T22:01:04.575Z
 
 -- overload
 -- language: sql
@@ -13,6 +13,7 @@ CREATE OR REPLACE FUNCTION archive.redact_function_source(p_source text)
  RETURNS text
  LANGUAGE sql
  IMMUTABLE
+ SET search_path TO 'pg_catalog', 'archive', 'public', 'extensions'
 AS $function$
   select regexp_replace(
     regexp_replace(
