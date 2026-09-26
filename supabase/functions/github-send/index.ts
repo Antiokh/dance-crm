@@ -119,7 +119,7 @@ Deno.serve(async (request) => {
     const path = `db/${payload.schema}/${payload.function_name}.sql`
     const content = buildGroupedContent(payload)
     const commitMessage =
-      `[CF-Pages-Skip] sql function update: ${payload.schema}.${payload.function_name} ` +
+      `[supabase-export] sql function update: ${payload.schema}.${payload.function_name} ` +
       `(${payload.overloads.length} overload${payload.overloads.length === 1 ? '' : 's'})`
 
     let sha: string | undefined
