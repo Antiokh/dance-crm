@@ -1,0 +1,156 @@
+/* Mobile layout tuning for Telegram Mini App.
+   Geometry and mobile type scale only; colors remain Telegram theme tokens. */
+
+@media (max-width: 520px) {
+  /* Keep Telegram's native surface hierarchy:
+     secondary background for the page, primary background for sections. */
+  body,
+  .app-shell {
+    background: var(--app-secondary-bg);
+  }
+
+  .topbar {
+    background: var(--app-header-bg);
+  }
+
+  .topbar {
+    padding-top: calc(10px + var(--app-safe-top));
+    padding-bottom: 9px;
+  }
+
+  .page {
+    padding-top: 12px;
+    padding-bottom: 16px;
+  }
+
+  h1 { font-size: 22px; }
+  h2 { font-size: 30px; }
+  .eyebrow { font-size: 12px; }
+
+  .account-copy strong { font-size: 14px; }
+  .account-copy span { font-size: 11px; }
+
+  .page-heading {
+    gap: 11px;
+    margin-bottom: 8px;
+  }
+
+  .filter-row { gap: 7px; }
+  .chip {
+    padding: 7px 12px;
+    font-size: 15px;
+  }
+  .chip:not(.active) { background: transparent; }
+
+  /* Native-list feel: no card fill, only separators between trips. */
+  .trip-list {
+    gap: 0;
+    border-top: 1px solid var(--app-separator);
+    border-bottom: 1px solid var(--app-separator);
+  }
+
+  .trip-card {
+    grid-template-columns: 58px minmax(0, 1fr) 14px;
+    gap: 11px;
+    padding: 12px 0;
+    border: 0;
+    border-bottom: 1px solid var(--app-separator);
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .trip-card:last-child { border-bottom: 0; }
+  .trip-card:active { background: transparent; opacity: .72; }
+
+  .date-block {
+    align-self: start;
+    justify-content: flex-start;
+    min-height: 0;
+    padding-top: 1px;
+    border-radius: 0;
+    background: transparent;
+  }
+  .date-block strong { font-size: 25px; }
+  .date-block span { font-size: 12px; margin-top: 5px; }
+
+  .trip-title-row strong { font-size: 17px; }
+  .status {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  .muted {
+    font-size: 13px;
+    line-height: 1.38;
+  }
+
+  .trip-meta {
+    gap: 14px;
+    margin-top: 7px;
+    font-size: 13px;
+  }
+
+  .chevron { font-size: 25px; }
+
+  .back {
+    padding-bottom: 10px;
+    font-size: 15px;
+  }
+
+  .hero-card { padding: 14px; }
+  .hero-card h2 { font-size: 27px; }
+
+  /* Three short values fit comfortably in one row on phones. */
+  .stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .stats-grid div { padding: 8px; }
+  .stats-grid span { font-size: 11px; }
+  .stats-grid strong {
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .section-card {
+    margin-top: 10px;
+    padding: 12px;
+  }
+
+  .section-title {
+    margin-bottom: 6px;
+    font-size: 17px;
+  }
+
+  .point-row {
+    grid-template-columns: 54px minmax(0, 1fr) auto;
+    gap: 9px;
+    padding: 9px 0;
+  }
+  .time-badge { font-size: 15px; }
+  .point-row strong { font-size: 15px; }
+
+  .ghost-button { padding: 7px 9px; font-size: 13px; }
+
+  .bottom-nav {
+    padding-top: 9px;
+    padding-bottom: calc(9px + var(--app-safe-bottom));
+  }
+  .bottom-nav button {
+    gap: 4px;
+    font-size: 12px;
+  }
+  .bottom-nav button .nav-icon,
+  .bottom-nav button .nav-icon svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* Detail view has no bottom navigation, so do not reserve its height. */
+  .sticky-action {
+    bottom: calc(10px + var(--app-safe-bottom));
+    margin-top: 10px;
+  }
+}
