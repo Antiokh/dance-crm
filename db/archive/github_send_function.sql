@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   archive
 -- Function: github_send_function
--- Updated:  2026-09-26T20:33:15.402Z
+-- Updated:  2026-09-26T20:50:14.866Z
 
 -- overload
 -- language: plpgsql
@@ -15,6 +15,7 @@ CREATE OR REPLACE FUNCTION archive.github_send_function(p_function_history_id bi
 AS $function$
 declare
   v_publish_token uuid;
+  v_edge_base_url text;
   v_response extensions.http_response;
   v_body jsonb;
 begin
@@ -28,9 +29,18 @@ begin
     raise exception 'pending queue item not found';
   end if;
 
+  select edge_base_url
+  into v_edge_base_url
+  from archive.function_versioning_settings
+  where singleton = true;
+
+  if v_edge_base_url is null then
+    raise exception 'function versioning edge_base_url is not configured';
+  end if;
+
   v_response := extensions.http((
     'POST',
-    'https://acmgtkethcijxgldrfgw.supabase.co/functions/v1/github-send',
+    rtrim(v_edge_base_url, '/') || '/github-send',
     array[
       extensions.http_header('Content-Type', 'application/json')
     ],
@@ -42,13 +52,18 @@ begin
   )::extensions.http_request);
 
   if v_response.status < 200 or v_response.status >= 300 then
-    raise exception 'github-send HTTP %: %', v_response.status, left(coalesce(v_response.content,''), 1000);
+    raise exception
+      'github-send HTTP %: %',
+      v_response.status,
+      left(coalesce(v_response.content, ''), 1000);
   end if;
 
   v_body := v_response.content::jsonb;
 
   if coalesce((v_body->>'ok')::boolean, false) is not true then
-    raise exception 'github-send failed: %', coalesce(v_body->>'error', v_response.content);
+    raise exception
+      'github-send failed: %',
+      coalesce(v_body->>'error', v_response.content);
   end if;
 end;
 $function$
