@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   archive
 -- Function: process_github_push_queue
--- Updated:  2026-09-26T20:50:16.111Z
+-- Updated:  2026-09-26T21:41:02.048Z
 
 -- overload
 -- language: plpgsql
@@ -18,33 +18,36 @@ declare
   v_count integer := 0;
 begin
   for r in
-    select id, function_history_id, try_count
+    select id,item_type,function_history_id,table_history_id,try_count
     from archive.github_push_queue
-    where status = 'pending'
+    where status='pending'
       and try_count < 10
     order by id
-    limit greatest(p_limit, 0)
+    limit greatest(p_limit,0)
     for update skip locked
   loop
     begin
-      perform archive.github_send_function(r.function_history_id);
+      if r.item_type='function' then
+        perform archive.github_send_function(r.function_history_id);
+      elsif r.item_type='table_bundle' then
+        perform archive.github_send_tables(r.table_history_id);
+      else
+        raise exception 'unsupported queue item type: %', r.item_type;
+      end if;
 
       update archive.github_push_queue
-      set status = 'done',
-          pushed_at = now(),
-          last_error = null
-      where id = r.id;
+      set status='done',
+          pushed_at=now(),
+          last_error=null
+      where id=r.id;
 
-      v_count := v_count + 1;
+      v_count := v_count+1;
     exception when others then
       update archive.github_push_queue
-      set try_count = try_count + 1,
-          last_error = SQLERRM,
-          status = case
-            when try_count + 1 >= 10 then 'dead'
-            else 'pending'
-          end
-      where id = r.id;
+      set try_count=try_count+1,
+          last_error=SQLERRM,
+          status=case when try_count+1 >= 10 then 'dead' else 'pending' end
+      where id=r.id;
     end;
   end loop;
 
