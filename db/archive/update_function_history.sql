@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   archive
 -- Function: update_function_history
--- Updated:  2026-09-26T20:50:06.746Z
+-- Updated:  2026-09-26T22:01:16.428Z
 
 -- overload
 -- language: plpgsql
@@ -13,7 +13,7 @@ CREATE OR REPLACE FUNCTION archive.update_function_history(function_name text, a
  RETURNS boolean
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'public', 'archive'
+ SET search_path TO 'pg_catalog', 'archive', 'public', 'extensions'
 AS $function$
 declare
   v_prev_id bigint;
