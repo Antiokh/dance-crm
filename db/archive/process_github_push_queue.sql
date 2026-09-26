@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   archive
 -- Function: process_github_push_queue
--- Updated:  2026-09-26T21:41:02.048Z
+-- Updated:  2026-09-26T22:01:27.463Z
 
 -- overload
 -- language: plpgsql
@@ -12,6 +12,7 @@
 CREATE OR REPLACE FUNCTION archive.process_github_push_queue(p_limit integer DEFAULT 5)
  RETURNS integer
  LANGUAGE plpgsql
+ SET search_path TO 'pg_catalog', 'archive', 'public', 'extensions'
 AS $function$
 declare
   r record;
