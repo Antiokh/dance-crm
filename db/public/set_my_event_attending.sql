@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   public
 -- Function: set_my_event_attending
--- Updated:  2026-09-27T00:51:02.971Z
+-- Updated:  2026-09-27T01:01:02.383Z
 
 -- overload
 -- language: plpgsql
@@ -12,7 +12,6 @@
 CREATE OR REPLACE FUNCTION public.set_my_event_attending(p_event_id uuid, p_attending boolean)
  RETURNS boolean
  LANGUAGE plpgsql
- SECURITY DEFINER
  SET search_path TO ''
 AS $function$
 declare
@@ -41,21 +40,28 @@ begin
 
     insert into public.event_attendance (
       event_id,
-      dancer_id
+      dancer_id,
+      cancelled_at
     )
     values (
       p_event_id,
-      v_dancer_id
+      v_dancer_id,
+      null
     )
     on conflict (event_id, dancer_id)
-    do update set updated_at = now();
+    do update
+      set cancelled_at = null,
+          updated_at = now();
 
     return true;
   end if;
 
-  delete from public.event_attendance
+  update public.event_attendance
+  set cancelled_at = now(),
+      updated_at = now()
   where event_id = p_event_id
-    and dancer_id = v_dancer_id;
+    and dancer_id = v_dancer_id
+    and cancelled_at is null;
 
   return false;
 end;
