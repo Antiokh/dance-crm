@@ -42,6 +42,10 @@ type FeedState =
   | { status: 'ready'; data: DancerHomeFeed; error: null }
   | { status: 'error'; data: null; error: string }
 
+type TodayItem =
+  | { kind: 'event'; startsAt: string; event: DanceEvent }
+  | { kind: 'class'; startsAt: string; item: GroupClass }
+
 function displayName(dancer: DancerSummary) {
   if (dancer.custom_name?.trim()) return dancer.custom_name.trim()
 
@@ -104,15 +108,24 @@ function dateParts(value: string) {
   }
 }
 
-function timeRange(startsAt: string, endsAt: string | null) {
-  const formatter = new Intl.DateTimeFormat('ru-RU', {
+function dateCaption(value: string) {
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: 'numeric',
+    month: 'short',
+  }).format(new Date(value)).replace('.', '')
+}
+
+function shortTime(value: string) {
+  return new Intl.DateTimeFormat('ru-RU', {
     hour: '2-digit',
     minute: '2-digit',
-  })
+  }).format(new Date(value))
+}
 
-  const start = formatter.format(new Date(startsAt))
+function timeRange(startsAt: string, endsAt: string | null) {
+  const start = shortTime(startsAt)
   if (!endsAt) return start
-  return `${start}–${formatter.format(new Date(endsAt))}`
+  return `${start}–${shortTime(endsAt)}`
 }
 
 function eventTypeLabel(type: DanceEvent['event_type']) {
@@ -152,21 +165,28 @@ function classDescription(item: GroupClass) {
   ].filter(Boolean).join(' · ') || undefined
 }
 
-function DateBadge({ value, accented = false }: { value: string; accented?: boolean }) {
+function DateBadge({ value }: { value: string }) {
   const parts = dateParts(value)
-  const className = accented
-    ? 'tgui-trip-date tgui-trip-date-today'
-    : 'tgui-trip-date'
 
   return (
-    <span className={className}>
+    <span className="tgui-trip-date">
       <strong>{parts.day}</strong>
       <span>{parts.weekday}</span>
     </span>
   )
 }
 
+function TimeBadge({ value }: { value: string }) {
+  return (
+    <span className="dancer-home-time">
+      {shortTime(value)}
+    </span>
+  )
+}
+
 function DancerHome({ state }: { state: FeedState }) {
+  const [eventsExpanded, setEventsExpanded] = useState(false)
+
   if (state.status === 'loading') {
     return (
       <Placeholder
@@ -187,12 +207,91 @@ function DancerHome({ state }: { state: FeedState }) {
     )
   }
 
+  const todayItems: TodayItem[] = [
+    ...state.data.today_events.map((event) => ({
+      kind: 'event' as const,
+      startsAt: event.starts_at,
+      event,
+    })),
+    ...state.data.today_classes.map((item) => ({
+      kind: 'class' as const,
+      startsAt: item.starts_at,
+      item,
+    })),
+  ].sort((a, b) => (
+    new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime()
+  ))
+
+  const visibleEvents = eventsExpanded
+    ? state.data.events
+    : state.data.events.slice(0, 2)
+  const hiddenEventCount = Math.max(0, state.data.events.length - 2)
+
   return (
     <>
+      {state.data.attention.length > 0 && (
+        <Section className="tgui-section" header="Внимание">
+          <List className="tgui-trip-list">
+            {state.data.attention.map((item) => (
+              <Cell
+                key={item.id}
+                className="tgui-trip-cell"
+                before={<span className="dancer-home-pin" aria-hidden="true">📌</span>}
+                hint={item.event ? eventTypeLabel(item.event.event_type) : 'Важно'}
+                subtitle={
+                  item.event
+                    ? `${dateCaption(item.event.starts_at)} · ${timeRange(item.event.starts_at, item.event.ends_at)}`
+                    : undefined
+                }
+                description={item.body ?? item.event?.description ?? undefined}
+              >
+                {item.title}
+              </Cell>
+            ))}
+          </List>
+        </Section>
+      )}
+
+      <Section className="tgui-section" header="Сегодня">
+        <List className="tgui-trip-list">
+          {todayItems.length > 0 ? (
+            todayItems.map((today) => (
+              today.kind === 'event' ? (
+                <Cell
+                  key={`event-${today.event.id}`}
+                  className="tgui-trip-cell"
+                  before={<TimeBadge value={today.event.starts_at} />}
+                  hint={eventTypeLabel(today.event.event_type)}
+                  subtitle={today.event.venue?.name ?? undefined}
+                  description={eventDescription(today.event)}
+                >
+                  {today.event.title}
+                </Cell>
+              ) : (
+                <Cell
+                  key={`class-${today.item.id}`}
+                  className="tgui-trip-cell"
+                  before={<TimeBadge value={today.item.starts_at} />}
+                  hint="Занятие"
+                  subtitle={styleTitle(today.item.style) ?? undefined}
+                  description={classDescription(today.item)}
+                >
+                  {today.item.group_title}
+                </Cell>
+              )
+            ))
+          ) : (
+            <Cell subtitle="На сегодня событий и занятий нет.">
+              Свободный день
+            </Cell>
+          )}
+        </List>
+      </Section>
+
       <Section className="tgui-section" header="Ближайшие события">
         <List className="tgui-trip-list">
-          {state.data.events.length > 0 ? (
-            state.data.events.map((event) => (
+          {visibleEvents.length > 0 ? (
+            visibleEvents.map((event) => (
               <Cell
                 key={event.id}
                 className="tgui-trip-cell"
@@ -207,6 +306,19 @@ function DancerHome({ state }: { state: FeedState }) {
           ) : (
             <Cell subtitle="Здесь появятся вечеринки и опены.">
               Событий пока нет
+            </Cell>
+          )}
+
+          {hiddenEventCount > 0 && (
+            <Cell
+              Component="button"
+              className="dancer-home-more-cell"
+              after={<span className="menu-chevron">{eventsExpanded ? '⌃' : '⌄'}</span>}
+              onClick={() => setEventsExpanded((value) => !value)}
+            >
+              {eventsExpanded
+                ? 'Свернуть'
+                : `Показать ещё ${hiddenEventCount}`}
             </Cell>
           )}
         </List>
@@ -359,37 +471,37 @@ export default function App() {
 
       <main>
         <section className="tgui-page">
-        {loading ? (
-          <Placeholder
-            header="Авторизация…"
-            description="Проверяем Telegram и создаём сессию DanceApp."
-          >
-            <Spinner size="m" />
-          </Placeholder>
-        ) : auth.status === 'error' ? (
-          <>
+          {loading ? (
             <Placeholder
-              header="Не удалось войти"
-              description={auth.error}
+              header="Авторизация…"
+              description="Проверяем Telegram и создаём сессию DanceApp."
+            >
+              <Spinner size="m" />
+            </Placeholder>
+          ) : auth.status === 'error' ? (
+            <>
+              <Placeholder
+                header="Не удалось войти"
+                description={auth.error}
+              />
+              <Section className="tgui-section" header="Диагностика">
+                <Cell>
+                  Runtime: {tma.isTelegram ? 'Telegram' : 'browser'}
+                </Cell>
+                <Cell>
+                  TMA: {tma.initialized ? 'initialized' : tma.error || 'not initialized'}
+                </Cell>
+                <Cell>Build: {buildLabel}</Cell>
+              </Section>
+            </>
+          ) : auth.status === 'preview' ? (
+            <Placeholder
+              header="Browser preview"
+              description="Откройте Mini App из Telegram, чтобы увидеть персональные события и занятия."
             />
-            <Section className="tgui-section" header="Диагностика">
-              <Cell>
-                Runtime: {tma.isTelegram ? 'Telegram' : 'browser'}
-              </Cell>
-              <Cell>
-                TMA: {tma.initialized ? 'initialized' : tma.error || 'not initialized'}
-              </Cell>
-              <Cell>Build: {buildLabel}</Cell>
-            </Section>
-          </>
-        ) : auth.status === 'preview' ? (
-          <Placeholder
-            header="Browser preview"
-            description="Откройте Mini App из Telegram, чтобы увидеть персональные события и занятия."
-          />
-        ) : (
-          <DancerHome state={feed} />
-        )}
+          ) : (
+            <DancerHome state={feed} />
+          )}
         </section>
       </main>
     </div>
