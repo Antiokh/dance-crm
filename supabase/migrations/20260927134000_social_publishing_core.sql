@@ -344,7 +344,6 @@ revoke all on function public.social_get_publication_context(uuid)
 grant execute on function public.social_get_publication_context(uuid)
   to service_role;
 
-drop function if exists public.social_get_event_publication_context(uuid);
 
 create or replace function public.social_mark_publish_started(
   p_job_id uuid,
