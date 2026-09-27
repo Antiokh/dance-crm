@@ -49,8 +49,10 @@
   display: inline-flex;
   min-width: 52px;
   min-height: 44px;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   color: var(
     --tg-theme-accent-text-color,
     var(--tg-theme-link-color, #2481cc)
@@ -126,34 +128,6 @@
 }
 
 
-.class-description-inline,
-.class-role-balance {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 5px;
-}
-
-.class-description-separator,
-.class-role-balance-dot {
-  color: var(
-    --tg-theme-subtitle-text-color,
-    var(--tg-theme-hint-color, #999)
-  );
-}
-
-.class-role-balance {
-  gap: 4px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.class-role-balance-leader {
-  color: #5aa9ff;
-}
-
-.class-role-balance-follower {
-  color: #f27ab1;
-}
 
 
 .dancer-nav-icon {
@@ -182,4 +156,19 @@
 .dancer-profile-page .tgui-section:last-child,
 .dancer-school-page .tgui-section:last-child {
   margin-bottom: 0;
+}
+
+
+.class-role-balance-pie {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  border: 1px solid color-mix(
+    in srgb,
+    var(--tg-theme-text-color, #fff) 20%,
+    transparent
+  );
+  border-radius: 50%;
+  box-sizing: border-box;
 }

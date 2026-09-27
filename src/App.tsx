@@ -203,39 +203,44 @@ function classDescription(
     item.venue?.name,
   ].filter(Boolean).join(' · ')
 
-  const statusNode =
+  const statusText =
     status === 'waitlisted'
       ? 'Ожидает подтверждения'
-      : status === 'booked' &&
-          item.style.is_partner_dance &&
-          item.role_balance
-        ? (
-            <span
-              className="class-role-balance"
-              aria-label={`Партнёры ${item.role_balance.leader}, партнёрши ${item.role_balance.follower}`}
-            >
-              <span className="class-role-balance-leader">
-                {item.role_balance.leader}
-              </span>
-              <span className="class-role-balance-dot">•</span>
-              <span className="class-role-balance-follower">
-                {item.role_balance.follower}
-              </span>
-            </span>
-          )
-        : status === 'booked'
-          ? 'Записан'
-          : null
+      : status === 'booked' && !item.style.is_partner_dance
+        ? 'Записан'
+        : null
 
-  if (!prefix) return statusNode ?? undefined
-  if (!statusNode) return prefix
+  return [prefix || null, statusText]
+    .filter(Boolean)
+    .join(' · ') || undefined
+}
+
+function RoleBalanceIndicator({
+  balance,
+}: {
+  balance: GroupClass['role_balance']
+}) {
+  if (!balance) return null
+
+  const total = balance.leader + balance.follower
+  const leaderShare = total > 0
+    ? Math.round((balance.leader / total) * 1000) / 10
+    : 0
+
+  const background = total > 0
+    ? `conic-gradient(
+        #5aa9ff 0 ${leaderShare}%,
+        #f27ab1 ${leaderShare}% 100%
+      )`
+    : 'var(--tg-theme-secondary-bg-color, rgba(127, 127, 127, 0.24))'
 
   return (
-    <span className="class-description-inline">
-      <span>{prefix}</span>
-      <span className="class-description-separator">·</span>
-      {statusNode}
-    </span>
+    <span
+      className="class-role-balance-pie"
+      style={{ background }}
+      role="img"
+      aria-label={`Баланс: партнёры ${balance.leader}, партнёрши ${balance.follower}`}
+    />
   )
 }
 
@@ -267,21 +272,35 @@ function QuickAttendToggle({
   )
 }
 
-function DateBadge({ value }: { value: string }) {
+function DateBadge({
+  value,
+  balance = null,
+}: {
+  value: string
+  balance?: GroupClass['role_balance']
+}) {
   const parts = dateParts(value)
 
   return (
     <span className="tgui-trip-date">
       <strong>{parts.day}</strong>
       <span>{parts.weekday}</span>
+      <RoleBalanceIndicator balance={balance} />
     </span>
   )
 }
 
-function TimeBadge({ value }: { value: string }) {
+function TimeBadge({
+  value,
+  balance = null,
+}: {
+  value: string
+  balance?: GroupClass['role_balance']
+}) {
   return (
     <span className="dancer-home-time">
-      {shortTime(value)}
+      <span>{shortTime(value)}</span>
+      <RoleBalanceIndicator balance={balance} />
     </span>
   )
 }
@@ -491,7 +510,16 @@ function DancerHome({ state }: { state: FeedState }) {
                 <Cell
                   key={`class-${today.item.id}`}
                   className="tgui-trip-cell quick-attend-cell"
-                  before={<TimeBadge value={today.item.starts_at} />}
+                  before={
+                    <TimeBadge
+                      value={today.item.starts_at}
+                      balance={
+                        today.item.style.is_partner_dance
+                          ? today.item.role_balance
+                          : null
+                      }
+                    />
+                  }
                   after={
                     <QuickAttendToggle
                       checked={attend.attending}
@@ -583,7 +611,16 @@ function DancerHome({ state }: { state: FeedState }) {
                 <Cell
                   key={item.id}
                   className="tgui-trip-cell quick-attend-cell"
-                  before={<DateBadge value={item.starts_at} />}
+                  before={
+                    <DateBadge
+                      value={item.starts_at}
+                      balance={
+                        item.style.is_partner_dance
+                          ? item.role_balance
+                          : null
+                      }
+                    />
+                  }
                   after={
                     <QuickAttendToggle
                       checked={attend.attending}
