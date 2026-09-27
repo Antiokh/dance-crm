@@ -17,7 +17,8 @@ begin
       extensions.gen_random_uuid()::text
         || extensions.gen_random_uuid()::text,
       'dance_social_dispatch_secret',
-      'Shared secret for dance-crm social-publish-dispatch cron calls'
+      'Shared secret for dance-crm social-publish-dispatch cron calls',
+      null
     );
   end if;
 end
