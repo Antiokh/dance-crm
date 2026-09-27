@@ -180,7 +180,7 @@ create or replace function public.set_my_event_response(
 )
 returns jsonb
 language plpgsql
-security invoker
+security definer
 set search_path = ''
 as $function$
 declare
@@ -278,6 +278,11 @@ grant execute on function public.set_my_event_response(
   public.event_rsvp_response
 ) to authenticated;
 
+
+-- Event RSVP writes must go through the validated RPC so clients cannot
+-- forge role snapshots or bypass event availability checks.
+revoke insert, update, delete on public.event_attendance from authenticated;
+
 create or replace function public.get_my_event_attendance()
 returns table(event_id uuid)
 language sql
@@ -299,7 +304,7 @@ create or replace function public.set_my_event_attending(
 )
 returns boolean
 language plpgsql
-security invoker
+security definer
 set search_path = ''
 as $function$
 declare
