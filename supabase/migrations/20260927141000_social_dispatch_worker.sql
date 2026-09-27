@@ -70,7 +70,7 @@ create or replace function public.admin_configure_social_dispatch(
 )
 returns jsonb
 language plpgsql
-security invoker
+security definer
 set search_path = ''
 as $function$
 declare
