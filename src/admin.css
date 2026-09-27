@@ -186,31 +186,96 @@
 }
 
 .admin-style-panel {
-  display: block;
-}
-
-.admin-role-profile {
-  padding: var(--app-space-10) 0;
-  border-top: 1px solid var(--app-separator);
-}
-
-.admin-role-profile:first-child {
-  padding-top: 0;
-  border-top: 0;
-}
-
-.admin-role-profile:last-child {
-  padding-bottom: 0;
-}
-
-.admin-role-profile > .admin-toggle-row {
-  padding-inline: 0;
-}
-
-.admin-role-profile-fields {
   display: grid;
   gap: var(--app-panel-gap);
-  padding: var(--app-space-8) 0 0 var(--app-space-12);
+}
+
+.admin-style-profile-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--app-panel-gap);
+  min-width: 0;
+}
+
+.admin-style-profile-heading > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-profile-menu-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.admin-profile-menu-trigger {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  color: var(--tg-theme-accent-text-color, var(--app-accent));
+  font: inherit;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.admin-profile-menu-trigger:active {
+  background: color-mix(
+    in srgb,
+    var(--tg-theme-accent-text-color, var(--app-accent)) 12%,
+    transparent
+  );
+}
+
+.admin-profile-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 34;
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.admin-profile-menu {
+  position: absolute;
+  z-index: 35;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 178px;
+  overflow: hidden;
+  border: 1px solid var(--app-separator);
+  border-radius: var(--app-popover-radius);
+  background: var(--tg-theme-bg-color, var(--app-bg));
+  box-shadow: 0 8px 28px color-mix(in srgb, #000 18%, transparent);
+}
+
+.admin-profile-menu-delete {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--app-space-16);
+  border: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  color: var(--tg-theme-destructive-text-color, var(--app-destructive));
+  font: inherit;
+  text-align: left;
+}
+
+.admin-profile-menu-delete:active {
+  background: color-mix(
+    in srgb,
+    var(--tg-theme-destructive-text-color, var(--app-destructive)) 10%,
+    transparent
+  );
 }
 
 .admin-profile-flags {
@@ -234,6 +299,17 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--app-panel-gap);
+}
+
+.admin-style-empty {
+  padding: var(--app-panel-padding-y) var(--app-panel-padding-x);
+  color: var(--tg-theme-subtitle-text-color, var(--app-subtitle));
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.admin-add-profile-section {
+  margin-bottom: var(--app-section-gap);
 }
 
 .admin-form-error {
@@ -270,9 +346,5 @@
   .admin-profile-flags,
   .admin-competition-block .two-col {
     grid-template-columns: 1fr;
-  }
-
-  .admin-role-profile-fields {
-    padding-left: var(--app-space-8);
   }
 }
