@@ -209,6 +209,7 @@ as $function$
     'event_type', e.event_type,
     'title', e.title,
     'description', e.description,
+    'announcement_image_url', e.announcement_image_url,
     'starts_at', e.starts_at,
     'ends_at', e.ends_at,
     'published', e.published,
