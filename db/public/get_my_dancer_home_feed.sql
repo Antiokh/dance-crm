@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   public
 -- Function: get_my_dancer_home_feed
--- Updated:  2026-09-27T00:41:01.601Z
+-- Updated:  2026-09-27T01:21:05.155Z
 
 -- overload
 -- language: plpgsql
@@ -174,7 +174,8 @@ begin
         'id', ds.id,
         'title_en', ds.title_en,
         'title_ru', ds.title_ru,
-        'title_sr', ds.title_sr
+        'title_sr', ds.title_sr,
+        'is_partner_dance', ds.is_partner_dance
       ) as style,
       case when v.id is null then null else jsonb_build_object(
         'id', v.id,
@@ -191,7 +192,15 @@ begin
           and b.status <> 'cancelled'::public.booking_status
         order by b.booked_at desc
         limit 1
-      ) as booking_status
+      ) as booking_status,
+      case
+        when ds.is_partner_dance
+          then jsonb_build_object(
+            'leader', cs.leader_booked_count,
+            'follower', cs.follower_booked_count
+          )
+        else null
+      end as role_balance
     from public.group_memberships gm
     join public.dance_group g
       on g.id = gm.group_id
@@ -226,7 +235,8 @@ begin
         'id', ds.id,
         'title_en', ds.title_en,
         'title_ru', ds.title_ru,
-        'title_sr', ds.title_sr
+        'title_sr', ds.title_sr,
+        'is_partner_dance', ds.is_partner_dance
       ) as style,
       case when v.id is null then null else jsonb_build_object(
         'id', v.id,
@@ -243,7 +253,15 @@ begin
           and b.status <> 'cancelled'::public.booking_status
         order by b.booked_at desc
         limit 1
-      ) as booking_status
+      ) as booking_status,
+      case
+        when ds.is_partner_dance
+          then jsonb_build_object(
+            'leader', cs.leader_booked_count,
+            'follower', cs.follower_booked_count
+          )
+        else null
+      end as role_balance
     from public.group_memberships gm
     join public.dance_group g
       on g.id = gm.group_id
