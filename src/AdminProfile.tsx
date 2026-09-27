@@ -178,6 +178,22 @@ function CheckField({
   )
 }
 
+function FormSection({
+  header,
+  children,
+}: {
+  header?: string
+  children: ReactNode
+}) {
+  return (
+    <Section className="tgui-section admin-form-section" header={header}>
+      <div className="tgui-form-panel tgui-form-panel-grid">
+        {children}
+      </div>
+    </Section>
+  )
+}
+
 function ErrorBlock({ error }: { error: string | null }) {
   return error ? <div className="tgui-error admin-form-error">{error}</div> : null
 }
@@ -417,7 +433,7 @@ function DancerEditor({
       onClose={onClose}
     >
       <form onSubmit={submit}>
-        <section className="section-card form-grid admin-form-card">
+        <FormSection>
           {dancer && !dancer.auth_linked ? (
             <div className="admin-inline-note">
               Профиль ещё не привязан к Telegram Auth.
@@ -488,7 +504,7 @@ function DancerEditor({
             checked={administrator}
             onChange={setAdministrator}
           />
-        </section>
+        </FormSection>
 
         <div className="admin-editor-heading">
           <strong>Стили</strong>
@@ -504,12 +520,13 @@ function DancerEditor({
             : [{ isLeader: false, label: 'Танцор' }]
 
           return (
-            <section className="section-card admin-style-card" key={style.id}>
-              <div className="admin-style-title">
-                <strong>{styleName(style)}</strong>
-                <span>{style.is_partner_dance ? 'Парный стиль' : 'Соло'}</span>
-              </div>
-
+            <Section
+              className="tgui-section admin-style-section"
+              key={style.id}
+              header={styleName(style)}
+              footer={style.is_partner_dance ? 'Парный стиль' : 'Соло'}
+            >
+              <div className="tgui-form-panel admin-style-panel">
               {roles.map(({ isLeader, label }) => {
                 const profile = findProfile(style.id, isLeader)
                 const enabled = Boolean(profile)
@@ -628,14 +645,21 @@ function DancerEditor({
                   </div>
                 )
               })}
-            </section>
+              </div>
+            </Section>
           )
         })}
 
         <ErrorBlock error={error} />
-        <button className="primary admin-save-button" disabled={saving}>
-          {saving ? 'Сохраняю…' : 'Сохранить танцора'}
-        </button>
+        <Button
+          type="submit"
+          stretched
+          loading={saving}
+          disabled={saving}
+          className="admin-save-button"
+        >
+          Сохранить танцора
+        </Button>
       </form>
     </AdminSheet>
   )
@@ -749,7 +773,7 @@ function GroupEditor({
       onClose={onClose}
     >
       <form onSubmit={submit}>
-        <section className="section-card form-grid admin-form-card">
+        <FormSection>
           <Field label="Стиль">
             <TelegramSelect
               value={styleId}
@@ -840,12 +864,18 @@ function GroupEditor({
             onChange={setApprovalRequired}
           />
           <CheckField label="Активна" checked={active} onChange={setActive} />
-        </section>
+        </FormSection>
 
         <ErrorBlock error={error} />
-        <button className="primary admin-save-button" disabled={saving}>
-          {saving ? 'Сохраняю…' : 'Сохранить группу'}
-        </button>
+        <Button
+          type="submit"
+          stretched
+          loading={saving}
+          disabled={saving}
+          className="admin-save-button"
+        >
+          Сохранить группу
+        </Button>
       </form>
     </AdminSheet>
   )
@@ -909,7 +939,7 @@ function EventEditor({
       onClose={onClose}
     >
       <form onSubmit={submit}>
-        <section className="section-card form-grid admin-form-card">
+        <FormSection>
           <Field label="Тип">
             <TelegramSelect value={type} onChange={(e) => setType(e.target.value as AdminEvent['event_type'])}>
               <option value="party">Вечеринка</option>
@@ -954,12 +984,18 @@ function EventEditor({
 
           <CheckField label="Опубликовано" checked={published} onChange={setPublished} />
           <CheckField label="Отменено" checked={cancelled} onChange={setCancelled} />
-        </section>
+        </FormSection>
 
         <ErrorBlock error={error} />
-        <button className="primary admin-save-button" disabled={saving}>
-          {saving ? 'Сохраняю…' : 'Сохранить событие'}
-        </button>
+        <Button
+          type="submit"
+          stretched
+          loading={saving}
+          disabled={saving}
+          className="admin-save-button"
+        >
+          Сохранить событие
+        </Button>
       </form>
     </AdminSheet>
   )
@@ -1016,7 +1052,7 @@ function VenueEditor({
       onClose={onClose}
     >
       <form onSubmit={submit}>
-        <section className="section-card form-grid admin-form-card">
+        <FormSection>
           <Field label="Название">
             <TelegramInput required value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
@@ -1038,11 +1074,17 @@ function VenueEditor({
             <TelegramTextarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Field>
           <CheckField label="Активен" checked={active} onChange={setActive} />
-        </section>
+        </FormSection>
         <ErrorBlock error={error} />
-        <button className="primary admin-save-button" disabled={saving}>
-          {saving ? 'Сохраняю…' : 'Сохранить зал'}
-        </button>
+        <Button
+          type="submit"
+          stretched
+          loading={saving}
+          disabled={saving}
+          className="admin-save-button"
+        >
+          Сохранить зал
+        </Button>
       </form>
     </AdminSheet>
   )
@@ -1091,7 +1133,7 @@ function StyleEditor({
       onClose={onClose}
     >
       <form onSubmit={submit}>
-        <section className="section-card form-grid admin-form-card">
+        <FormSection>
           <Field label="Название EN">
             <TelegramInput required value={titleEn} onChange={(e) => setTitleEn(e.target.value)} />
           </Field>
@@ -1102,11 +1144,17 @@ function StyleEditor({
             <TelegramInput value={titleSr} onChange={(e) => setTitleSr(e.target.value)} />
           </Field>
           <CheckField label="Парный стиль" checked={partner} onChange={setPartner} />
-        </section>
+        </FormSection>
         <ErrorBlock error={error} />
-        <button className="primary admin-save-button" disabled={saving}>
-          {saving ? 'Сохраняю…' : 'Сохранить стиль'}
-        </button>
+        <Button
+          type="submit"
+          stretched
+          loading={saving}
+          disabled={saving}
+          className="admin-save-button"
+        >
+          Сохранить стиль
+        </Button>
       </form>
     </AdminSheet>
   )
@@ -1178,7 +1226,7 @@ function LevelEditor({
       onClose={onClose}
     >
       <form onSubmit={submit}>
-        <section className="section-card form-grid admin-form-card">
+        <FormSection>
           <Field label="Стиль">
             <TelegramSelect value={styleId} onChange={(e) => setStyleId(Number(e.target.value))}>
               {catalog.styles.map((style) => (
@@ -1230,11 +1278,17 @@ function LevelEditor({
             />
           ) : null}
           <CheckField label="Активен" checked={active} onChange={setActive} />
-        </section>
+        </FormSection>
         <ErrorBlock error={error} />
-        <button className="primary admin-save-button" disabled={saving}>
-          {saving ? 'Сохраняю…' : 'Сохранить уровень'}
-        </button>
+        <Button
+          type="submit"
+          stretched
+          loading={saving}
+          disabled={saving}
+          className="admin-save-button"
+        >
+          Сохранить уровень
+        </Button>
       </form>
     </AdminSheet>
   )
