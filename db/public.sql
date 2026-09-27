@@ -3,7 +3,7 @@
 -- Schema:   public
 -- Entity:   tables
 -- Mode:     table_bundle
--- Updated:  2026-09-27T07:22:01.609Z
+-- Updated:  2026-09-27T07:42:04.594Z
 
 -- table: bookings
 
@@ -198,7 +198,6 @@ CREATE TABLE public.dance_group (
   style_id smallint NOT NULL,
   title text NOT NULL,
   description text,
-  level text,
   max_capacity integer,
   approval_required boolean NOT NULL DEFAULT false,
   enrollment_status group_enrollment_status NOT NULL DEFAULT 'open'::group_enrollment_status,
@@ -207,13 +206,16 @@ CREATE TABLE public.dance_group (
   active boolean NOT NULL DEFAULT true,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  level_id bigint,
   CONSTRAINT dance_group_check CHECK (ends_on IS NULL OR starts_on IS NULL OR ends_on >= starts_on),
+  CONSTRAINT dance_group_level_style_fkey FOREIGN KEY (level_id, style_id) REFERENCES styles_levels(id, style_id) ON DELETE RESTRICT,
   CONSTRAINT dance_group_max_capacity_check CHECK (max_capacity IS NULL OR max_capacity > 0),
   CONSTRAINT dance_group_pkey PRIMARY KEY (id),
   CONSTRAINT dance_group_style_id_fkey FOREIGN KEY (style_id) REFERENCES l_dance_style(id),
   CONSTRAINT dance_group_title_check CHECK (length(btrim(title)) >= 1 AND length(btrim(title)) <= 160)
 );
 CREATE INDEX dance_group_style_active_idx ON public.dance_group USING btree (style_id, active, enrollment_status);
+CREATE TRIGGER dance_group_generate_title BEFORE INSERT OR UPDATE ON public.dance_group FOR EACH ROW EXECUTE FUNCTION private.set_generated_group_title();
 CREATE TRIGGER dance_group_touch_updated_at BEFORE UPDATE ON public.dance_group FOR EACH ROW EXECUTE FUNCTION private.touch_updated_at();
 ALTER TABLE public.dance_group ENABLE ROW LEVEL SECURITY;
 CREATE POLICY dance_group_admin_delete ON public.dance_group FOR DELETE TO authenticated USING (private.has_app_role('administrator'::app_role));
@@ -246,6 +248,7 @@ CREATE TABLE public.dancer (
   CONSTRAINT dancer_telegram_id_key UNIQUE (telegram_id)
 );
 CREATE INDEX dancer_primary_role_idx ON public.dancer USING btree (primary_role);
+CREATE TRIGGER dancer_refresh_group_titles AFTER UPDATE OF custom_name, first_name, last_name, telegram_username ON public.dancer FOR EACH ROW EXECUTE FUNCTION private.refresh_group_titles_from_dancer();
 ALTER TABLE public.dancer ENABLE ROW LEVEL SECURITY;
 CREATE POLICY dancer_public_trainers_select ON public.dancer FOR SELECT TO anon USING ((EXISTS ( SELECT 1
    FROM (group_trainers gt
@@ -378,6 +381,7 @@ CREATE TABLE public.group_trainers (
   CONSTRAINT group_trainers_trainer_id_fkey FOREIGN KEY (trainer_id) REFERENCES dancer(id) ON UPDATE CASCADE ON DELETE CASCADE
 );
 CREATE INDEX group_trainers_trainer_idx ON public.group_trainers USING btree (trainer_id, group_id);
+CREATE TRIGGER group_trainers_refresh_group_title AFTER INSERT OR DELETE OR UPDATE ON public.group_trainers FOR EACH ROW EXECUTE FUNCTION private.refresh_group_title_from_trainers();
 CREATE TRIGGER group_trainers_require_trainer_role BEFORE INSERT OR UPDATE OF trainer_id ON public.group_trainers FOR EACH ROW EXECUTE FUNCTION private.ensure_group_trainer_role();
 ALTER TABLE public.group_trainers ENABLE ROW LEVEL SECURITY;
 CREATE POLICY group_trainers_admin_delete ON public.group_trainers FOR DELETE TO authenticated USING (private.has_app_role('administrator'::app_role));
@@ -449,6 +453,7 @@ CREATE TABLE public.l_dance_style (
   is_partner_dance boolean NOT NULL DEFAULT true,
   CONSTRAINT l_dance_style_pkey PRIMARY KEY (id)
 );
+CREATE TRIGGER dance_style_refresh_group_titles AFTER UPDATE OF title_en, title_ru, title_sr ON public.l_dance_style FOR EACH ROW EXECUTE FUNCTION private.refresh_group_titles_from_style();
 ALTER TABLE public.l_dance_style ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Enable read access for all users" ON public.l_dance_style FOR SELECT TO PUBLIC USING (true);
 
@@ -566,6 +571,7 @@ CREATE TABLE public.styles_levels (
   CONSTRAINT styles_levels_style_id_code_key UNIQUE (style_id, code),
   CONSTRAINT styles_levels_style_id_fkey FOREIGN KEY (style_id) REFERENCES l_dance_style(id) ON DELETE CASCADE
 );
+CREATE TRIGGER styles_levels_refresh_group_titles AFTER UPDATE OF title_en, title_ru, title_sr ON public.styles_levels FOR EACH ROW EXECUTE FUNCTION private.refresh_group_titles_from_level();
 ALTER TABLE public.styles_levels ENABLE ROW LEVEL SECURITY;
 CREATE POLICY styles_levels_read_active ON public.styles_levels FOR SELECT TO authenticated, anon USING (active);
 
