@@ -17,6 +17,12 @@ export type HomeStyle = {
   is_partner_dance: boolean
 }
 
+export type EventRoleBalance = {
+  leader: number
+  follower: number
+  other: number
+}
+
 export type DanceEvent = {
   id: string
   event_type: 'party' | 'open_class'
@@ -27,6 +33,7 @@ export type DanceEvent = {
   venue: HomeVenue | null
   style: HomeStyle | null
   attending: boolean
+  role_balance: EventRoleBalance | null
 }
 
 export type GroupClass = {
@@ -126,6 +133,7 @@ function parseEvent(value: unknown): DanceEvent | null {
     venue: venue(source.venue),
     style: style(source.style),
     attending: source.attending === true,
+    role_balance: null,
   }
 }
 
@@ -236,6 +244,39 @@ export async function loadDancerHomeFeed(): Promise<DancerHomeFeed> {
   const source = object(feedResult.data)
   if (!source) throw new Error('Dancer home feed is unavailable')
 
+  const parsedAttention = parseList(source.attention, parseAttention)
+  const parsedTodayEvents = parseList(source.today_events, parseEvent)
+  const parsedEvents = parseList(source.events, parseEvent)
+  const balanceEventIds = Array.from(new Set([
+    ...parsedAttention.flatMap((item) => item.event ? [item.event.id] : []),
+    ...parsedTodayEvents.map((event) => event.id),
+    ...parsedEvents.map((event) => event.id),
+  ]))
+
+  const balances = new Map<string, EventRoleBalance>()
+  if (balanceEventIds.length > 0) {
+    const { data: balanceRows, error: balanceError } = await supabase
+      .from('dance_events')
+      .select('id, leader_going_count, follower_going_count, other_going_count')
+      .in('id', balanceEventIds)
+
+    if (balanceError) throw balanceError
+
+    for (const row of balanceRows ?? []) {
+      balances.set(String(row.id), {
+        leader: typeof row.leader_going_count === 'number'
+          ? row.leader_going_count
+          : 0,
+        follower: typeof row.follower_going_count === 'number'
+          ? row.follower_going_count
+          : 0,
+        other: typeof row.other_going_count === 'number'
+          ? row.other_going_count
+          : 0,
+      })
+    }
+  }
+
   const eventIds = new Set(attendState.eventIds)
   const bookings = new Map(
     attendState.bookings.map((booking) => [booking.slot_id, booking]),
@@ -244,6 +285,10 @@ export async function loadDancerHomeFeed(): Promise<DancerHomeFeed> {
   const attachEventState = (event: DanceEvent): DanceEvent => ({
     ...event,
     attending: eventIds.has(event.id),
+    role_balance:
+      event.style?.is_partner_dance
+        ? balances.get(event.id) ?? { leader: 0, follower: 0, other: 0 }
+        : null,
   })
 
   const attachClassState = (item: GroupClass): GroupClass => {
@@ -258,13 +303,13 @@ export async function loadDancerHomeFeed(): Promise<DancerHomeFeed> {
   }
 
   return {
-    attention: parseList(source.attention, parseAttention).map((item) => ({
+    attention: parsedAttention.map((item) => ({
       ...item,
       event: item.event ? attachEventState(item.event) : null,
     })),
-    today_events: parseList(source.today_events, parseEvent).map(attachEventState),
+    today_events: parsedTodayEvents.map(attachEventState),
     today_classes: parseList(source.today_classes, parseClass).map(attachClassState),
-    events: parseList(source.events, parseEvent).map(attachEventState),
+    events: parsedEvents.map(attachEventState),
     classes: parseList(source.classes, parseClass).map(attachClassState),
   }
 }
