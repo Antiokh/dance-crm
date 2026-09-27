@@ -1428,7 +1428,7 @@ function EventEditor({
                   Прогноз на {dateTimeLabel(weather.data.forecast.forecast_at)}
                 </span>
               </>
-            ) : weather.status === 'ready' ? (
+            ) : weather.status === 'ready' && !weather.data.available ? (
               <span>
                 {weather.data.reason === 'out_of_range'
                   ? 'Прогноз появится ближе к дате мероприятия.'
