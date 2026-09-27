@@ -41,6 +41,7 @@ export type GroupClass = {
   venue: HomeVenue | null
   booking_status: 'booked' | 'waitlisted' | null
   booking_id: string | null
+  booking_role_id: number | null
   role_balance: {
     leader: number
     follower: number
@@ -166,6 +167,10 @@ function parseClass(value: unknown): GroupClass | null {
     venue: venue(source.venue),
     booking_status: bookingStatus,
     booking_id: typeof source.booking_id === 'string' ? source.booking_id : null,
+    booking_role_id:
+      typeof source.booking_role_id === 'number'
+        ? source.booking_role_id
+        : null,
     role_balance: (() => {
       const balance = object(source.role_balance)
       if (!balance) return null
@@ -248,6 +253,7 @@ export async function loadDancerHomeFeed(): Promise<DancerHomeFeed> {
       ...item,
       booking_id: booking?.id ?? null,
       booking_status: booking?.status ?? null,
+      booking_role_id: booking?.dance_role_id ?? null,
     }
   }
 
