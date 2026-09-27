@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   private
 -- Function: cancel_my_booking_internal
--- Updated:  2026-09-26T20:33:38.685Z
+-- Updated:  2026-09-27T01:11:03.218Z
 
 -- overload
 -- language: plpgsql
@@ -56,6 +56,8 @@ begin
       cancellation_type = 'user'::public.booking_cancellation_type
   where id = p_booking_id
   returning * into v_booking;
+
+  perform private.sync_overbook_request_for_booking(v_booking.id);
 
   if v_was_booked then
     perform private.promote_slot_waitlist(v_booking.slot_id);
