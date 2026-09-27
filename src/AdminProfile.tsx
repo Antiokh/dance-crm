@@ -697,6 +697,7 @@ function DancerEditor({
         >
           <div className="tgui-form-panel">
             <TelegramSelect
+              aria-label="Добавить стилевой профиль"
               value=""
               disabled={availableProfileOptions.length === 0}
               onChange={(event) => addProfile(event.target.value)}
