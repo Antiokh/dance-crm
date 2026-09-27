@@ -230,7 +230,7 @@ function classDescription(
 function RoleBalanceIndicator({
   balance,
 }: {
-  balance: GroupClass['role_balance']
+  balance: { leader: number; follower: number } | null
 }) {
   if (!balance) return null
 
@@ -312,7 +312,7 @@ function DateBadge({
   balance = null,
 }: {
   value: string
-  balance?: GroupClass['role_balance']
+  balance?: { leader: number; follower: number } | null
 }) {
   const parts = dateParts(value)
 
@@ -330,7 +330,7 @@ function TimeBadge({
   balance = null,
 }: {
   value: string
-  balance?: GroupClass['role_balance']
+  balance?: { leader: number; follower: number } | null
 }) {
   return (
     <span className="dancer-home-time">
@@ -597,7 +597,16 @@ function DancerHome({
                   <Cell
                     key={`event-${today.event.id}`}
                     className="tgui-trip-cell quick-attend-cell"
-                    before={<TimeBadge value={today.event.starts_at} />}
+                    before={
+                      <TimeBadge
+                        value={today.event.starts_at}
+                        balance={
+                          today.event.style?.is_partner_dance
+                            ? today.event.role_balance
+                            : null
+                        }
+                      />
+                    }
                     after={
                       <QuickAttendToggle
                         checked={attending}
@@ -682,7 +691,16 @@ function DancerHome({
                 <Cell
                   key={event.id}
                   className="tgui-trip-cell quick-attend-cell"
-                  before={<DateBadge value={event.starts_at} />}
+                  before={
+                    <DateBadge
+                      value={event.starts_at}
+                      balance={
+                        event.style?.is_partner_dance
+                          ? event.role_balance
+                          : null
+                      }
+                    />
+                  }
                   after={
                     <QuickAttendToggle
                       checked={attending}
