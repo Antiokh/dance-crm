@@ -6,6 +6,7 @@ import {
   Section,
   Spinner,
 } from '@telegram-apps/telegram-ui'
+import TelegramSwitch from './components/TelegramSwitch'
 import {
   authenticateTelegram,
   type AuthState,
@@ -21,6 +22,10 @@ import {
   type GroupClass,
   type HomeStyle,
 } from './lib/homeFeed'
+import {
+  setClassAttending,
+  setEventAttending,
+} from './lib/quickAttend'
 import { getTelegramUser, setTelegramVerticalSwipesEnabled } from './lib/telegram'
 import { getNativeTelegramUser, getTmaDiagnostics } from './lib/tma'
 
@@ -45,6 +50,12 @@ type FeedState =
 type TodayItem =
   | { kind: 'event'; startsAt: string; event: DanceEvent }
   | { kind: 'class'; startsAt: string; item: GroupClass }
+
+type ClassAttendState = {
+  attending: boolean
+  bookingId: string | null
+  status: 'booked' | 'waitlisted' | null
+}
 
 function displayName(dancer: DancerSummary) {
   if (dancer.custom_name?.trim()) return dancer.custom_name.trim()
@@ -157,16 +168,44 @@ function classSubtitle(item: GroupClass) {
   ].filter(Boolean).join(' · ')
 }
 
-function classDescription(item: GroupClass) {
+function classDescription(
+  item: GroupClass,
+  status: 'booked' | 'waitlisted' | null = item.booking_status,
+) {
   return [
     item.group_level,
     item.venue?.name,
-    item.booking_status === 'booked'
+    status === 'booked'
       ? 'Записан'
-      : item.booking_status === 'waitlisted'
+      : status === 'waitlisted'
         ? 'Лист ожидания'
         : null,
   ].filter(Boolean).join(' · ') || undefined
+}
+
+function QuickAttendToggle({
+  checked,
+  pending,
+  onChange,
+}: {
+  checked: boolean
+  pending: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <span
+      className="quick-attend-control"
+      onClick={(event) => event.stopPropagation()}
+    >
+      <TelegramSwitch
+        checked={checked}
+        disabled={pending}
+        onChange={(event) => onChange(event.target.checked)}
+        aria-label={checked ? 'Я иду' : 'Отметиться: я иду'}
+      />
+      <span className="quick-attend-label">Я иду</span>
+    </span>
+  )
 }
 
 function DateBadge({ value }: { value: string }) {
@@ -190,6 +229,10 @@ function TimeBadge({ value }: { value: string }) {
 
 function DancerHome({ state }: { state: FeedState }) {
   const [eventsExpanded, setEventsExpanded] = useState(false)
+  const [eventOverrides, setEventOverrides] = useState<Record<string, boolean>>({})
+  const [classOverrides, setClassOverrides] = useState<Record<string, ClassAttendState>>({})
+  const [pendingActions, setPendingActions] = useState<Record<string, boolean>>({})
+  const [actionError, setActionError] = useState<string | null>(null)
 
   if (state.status === 'loading') {
     return (
@@ -230,6 +273,73 @@ function DancerHome({ state }: { state: FeedState }) {
     ? state.data.events
     : state.data.events.slice(0, 2)
   const hiddenEventCount = Math.max(0, state.data.events.length - 2)
+
+  const eventAttending = (event: DanceEvent) =>
+    eventOverrides[event.id] ?? event.attending
+
+  const classAttendState = (item: GroupClass): ClassAttendState =>
+    classOverrides[item.id] ?? {
+      attending: item.booking_status !== null,
+      bookingId: item.booking_id,
+      status: item.booking_status,
+    }
+
+  const toggleEvent = async (event: DanceEvent, attending: boolean) => {
+    const key = `event:${event.id}`
+    const previous = eventAttending(event)
+
+    setActionError(null)
+    setEventOverrides((current) => ({ ...current, [event.id]: attending }))
+    setPendingActions((current) => ({ ...current, [key]: true }))
+
+    try {
+      const actual = await setEventAttending(event.id, attending)
+      setEventOverrides((current) => ({ ...current, [event.id]: actual }))
+    } catch (error) {
+      setEventOverrides((current) => ({ ...current, [event.id]: previous }))
+      setActionError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setPendingActions((current) => ({ ...current, [key]: false }))
+    }
+  }
+
+  const toggleClass = async (item: GroupClass, attending: boolean) => {
+    const key = `class:${item.id}`
+    const previous = classAttendState(item)
+
+    setActionError(null)
+    setClassOverrides((current) => ({
+      ...current,
+      [item.id]: {
+        attending,
+        bookingId: previous.bookingId,
+        status: attending ? previous.status : null,
+      },
+    }))
+    setPendingActions((current) => ({ ...current, [key]: true }))
+
+    try {
+      const actual = await setClassAttending({
+        slotId: item.id,
+        bookingId: previous.bookingId,
+        attending,
+      })
+
+      setClassOverrides((current) => ({
+        ...current,
+        [item.id]: {
+          attending: actual.attending,
+          bookingId: actual.bookingId,
+          status: actual.status,
+        },
+      }))
+    } catch (error) {
+      setClassOverrides((current) => ({ ...current, [item.id]: previous }))
+      setActionError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setPendingActions((current) => ({ ...current, [key]: false }))
+    }
+  }
 
   return (
     <>
