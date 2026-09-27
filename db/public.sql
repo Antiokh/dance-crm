@@ -3,7 +3,7 @@
 -- Schema:   public
 -- Entity:   tables
 -- Mode:     table_bundle
--- Updated:  2026-09-27T08:52:04.354Z
+-- Updated:  2026-09-27T09:41:04.733Z
 
 -- table: bookings
 
@@ -604,6 +604,7 @@ CREATE TABLE public.styles_levels (
 );
 CREATE TRIGGER styles_levels_refresh_group_titles AFTER UPDATE OF title_en, title_ru, title_sr ON public.styles_levels FOR EACH ROW EXECUTE FUNCTION private.refresh_group_titles_from_level();
 ALTER TABLE public.styles_levels ENABLE ROW LEVEL SECURITY;
+CREATE POLICY styles_levels_admin_select ON public.styles_levels FOR SELECT TO authenticated USING (private.has_app_role('administrator'::app_role));
 CREATE POLICY styles_levels_read_active ON public.styles_levels FOR SELECT TO authenticated, anon USING (active);
 
 -- table: subscription_plan_groups
