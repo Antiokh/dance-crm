@@ -288,6 +288,7 @@ begin
   where c.id = p_command_id
     and c.status = 'leased'
     and c.lease_owner = p_worker
+    and c.lease_expires_at > now()
   for update;
 
   if not found then
