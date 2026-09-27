@@ -1911,6 +1911,9 @@ function SchedulePage({
                 description={[
                   event.event_type === 'party' ? 'Вечеринка' : 'Опен',
                   catalog.venues.find((venue) => venue.id === event.venue_id)?.name,
+                  `L ${event.leader_going_count} · F ${event.follower_going_count}${
+                    event.other_going_count ? ` · +${event.other_going_count}` : ''
+                  }`,
                 ].filter(Boolean).join(' · ') || undefined}
                 after={<span className="menu-chevron">›</span>}
                 onClick={() => onEditEvent(event)}
