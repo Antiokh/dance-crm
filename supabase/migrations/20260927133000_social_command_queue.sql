@@ -205,6 +205,27 @@ begin
       using errcode = '22023';
   end if;
 
+  with ranked_rsvp as (
+    select
+      c.id,
+      row_number() over (
+        partition by c.source_type, c.source_id, c.operation
+        order by c.created_at desc, c.id desc
+      ) as queue_rank
+    from public.social_commands c
+    where c.status in ('queued', 'retry')
+      and c.command_type = 'social.rsvp_update'
+      and c.operation = 'rsvp_update'
+  )
+  update public.social_commands c
+  set status = 'cancelled',
+      last_error = 'Superseded by newer RSVP command',
+      lease_owner = null,
+      lease_expires_at = null
+  from ranked_rsvp r
+  where c.id = r.id
+    and r.queue_rank > 1;
+
   update public.social_commands c
   set status = case
         when c.attempt_count >= c.max_attempts then 'dead'
