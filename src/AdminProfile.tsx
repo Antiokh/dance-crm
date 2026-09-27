@@ -243,19 +243,56 @@ function DancerEditor({
         && level.active,
     )
 
-  const competitionSystems = (styleId: number) =>
-    Array.from(
+  const competitionLevels = (styleId: number, systemCode: string) =>
+    catalog.levels.filter(
+      (level) =>
+        level.style_id === styleId
+        && level.kind === 'competition'
+        && level.system_code === systemCode
+        && level.active,
+    )
+
+  const availableLevelOptions = (profile: AdminDancerStyleProfile) => {
+    const options: Array<{ value: string; label: string }> = []
+
+    if (profile.training_level_id === null) {
+      for (const level of trainingLevels(profile.style_id)) {
+        options.push({
+          value: `training:${level.id}`,
+          label: `Учебный · ${level.title_en}`,
+        })
+      }
+    }
+
+    const existingSystems = new Set(
+      profile.competition_profiles.map((item) => item.system_code),
+    )
+
+    const competitionSystems = Array.from(
       new Set(
         catalog.levels
           .filter(
             (level) =>
-              level.style_id === styleId
+              level.style_id === profile.style_id
               && level.kind === 'competition'
               && level.active,
           )
           .map((level) => level.system_code),
       ),
     )
+
+    for (const systemCode of competitionSystems) {
+      if (existingSystems.has(systemCode)) continue
+      for (const level of competitionLevels(profile.style_id, systemCode)) {
+        options.push({
+          value: `competition:${systemCode}:${level.id}`,
+          label: `${competitionSystemLabel(systemCode)} · ${levelName(level)}`,
+        })
+      }
+    }
+
+    return options
+  }
 
   const profileKey = (profile: Pick<AdminDancerStyleProfile, 'style_id' | 'is_leader'>) =>
     `${profile.style_id}:${profile.is_leader ? 'leader' : 'follower'}`
@@ -402,6 +439,40 @@ function DancerEditor({
     })
   }
 
+  const applyLevelOption = (
+    profile: AdminDancerStyleProfile,
+    value: string,
+  ) => {
+    if (!value) return
+
+    const [kind, systemOrLevel, maybeLevel] = value.split(':')
+    if (kind === 'training') {
+      patchProfile(profile.style_id, profile.is_leader, {
+        training_level_id: Number(systemOrLevel),
+      })
+      return
+    }
+
+    if (kind === 'competition' && maybeLevel) {
+      patchCompetition(profile, systemOrLevel, Number(maybeLevel))
+    }
+  }
+
+  const removeTrainingLevel = (profile: AdminDancerStyleProfile) => {
+    patchProfile(profile.style_id, profile.is_leader, {
+      training_level_id: null,
+    })
+    setProfileMenuKey(null)
+  }
+
+  const removeCompetitionProfile = (
+    profile: AdminDancerStyleProfile,
+    systemCode: string,
+  ) => {
+    patchCompetition(profile, systemCode, null)
+    setProfileMenuKey(null)
+  }
+
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     setSaving(true)
@@ -542,7 +613,7 @@ function DancerEditor({
           const profileRole = style.is_partner_dance
             ? roleName(profile.is_leader)
             : 'Танцор'
-          const menuOpen = profileMenuKey === key
+          const menuOpen = profileMenuKey === `profile:${key}`
 
           return (
             <Section
@@ -558,7 +629,11 @@ function DancerEditor({
                       aria-label={`Действия профиля ${styleName(style)} ${profileRole}`}
                       aria-expanded={menuOpen}
                       onClick={() =>
-                        setProfileMenuKey((current) => current === key ? null : key)
+                        setProfileMenuKey((current) =>
+                          current === `profile:${key}`
+                            ? null
+                            : `profile:${key}`
+                        )
                       }
                     >
                       ⋯
@@ -606,86 +681,218 @@ function DancerEditor({
                   />
                 </div>
 
-                <Field label="Учебный уровень">
-                  <TelegramSelect
-                    value={profile.training_level_id ?? ''}
-                    onChange={(event) =>
-                      patchProfile(profile.style_id, profile.is_leader, {
-                        training_level_id: nullableNumber(event.target.value),
-                      })
-                    }
-                  >
-                    <option value="">Не указан</option>
-                    {trainingLevels(profile.style_id).map((level) => (
-                      <option key={level.id} value={level.id}>
-                        {level.title_en}
-                      </option>
-                    ))}
-                  </TelegramSelect>
-                </Field>
-
-                {competitionSystems(profile.style_id).map((systemCode) => {
-                  const levels = catalog.levels.filter(
-                    (level) =>
-                      level.style_id === profile.style_id
-                      && level.kind === 'competition'
-                      && level.system_code === systemCode
-                      && level.active,
-                  )
-                  const competition = profile.competition_profiles.find(
-                    (item) => item.system_code === systemCode,
-                  )
+                {profile.training_level_id !== null ? (() => {
+                  const currentTraining = trainingLevels(profile.style_id)
+                    .find((level) => level.id === profile.training_level_id)
+                  const assignmentKey = `training:${key}`
+                  const assignmentMenuOpen = profileMenuKey === assignmentKey
 
                   return (
-                    <div className="admin-competition-block" key={systemCode}>
-                      <Field label={competitionSystemLabel(systemCode)}>
-                        <TelegramSelect
-                          value={competition?.level_id ?? ''}
-                          onChange={(event) =>
-                            patchCompetition(
-                              profile,
-                              systemCode,
-                              nullableNumber(event.target.value),
-                            )
-                          }
-                        >
-                          <option value="">Нет класса</option>
-                          {levels.map((level) => (
-                            <option key={level.id} value={level.id}>
-                              {levelName(level)}
-                            </option>
-                          ))}
-                        </TelegramSelect>
-                      </Field>
-
-                      {competition ? (
-                        <div className="two-col">
-                          <Field label="Очки">
-                            <TelegramInput
-                              inputMode="decimal"
-                              value={competition.points ?? ''}
-                              onChange={(event) =>
-                                patchCompetitionMeta(profile, systemCode, {
-                                  points: nullableNumber(event.target.value),
-                                })
-                              }
-                            />
-                          </Field>
-                          <Field label="External ID">
-                            <TelegramInput
-                              value={competition.external_profile_id ?? ''}
-                              onChange={(event) =>
-                                patchCompetitionMeta(profile, systemCode, {
-                                  external_profile_id: nullable(event.target.value),
-                                })
-                              }
-                            />
-                          </Field>
+                    <div className="admin-profile-assignment">
+                      <div className="admin-profile-assignment-heading">
+                        <div>
+                          <span>Учебный уровень</span>
+                          <strong>
+                            {currentTraining?.title_en ?? 'Неизвестный уровень'}
+                          </strong>
                         </div>
-                      ) : null}
+                        <span className="admin-profile-menu-wrap">
+                          <button
+                            type="button"
+                            className="admin-profile-menu-trigger"
+                            aria-label="Действия учебного уровня"
+                            aria-expanded={assignmentMenuOpen}
+                            onClick={() =>
+                              setProfileMenuKey((current) =>
+                                current === assignmentKey ? null : assignmentKey,
+                              )
+                            }
+                          >
+                            ⋯
+                          </button>
+                          {assignmentMenuOpen ? (
+                            <>
+                              <button
+                                type="button"
+                                className="admin-profile-menu-backdrop"
+                                aria-label="Закрыть меню уровня"
+                                onClick={() => setProfileMenuKey(null)}
+                              />
+                              <div className="admin-profile-menu">
+                                <button
+                                  type="button"
+                                  className="admin-profile-menu-delete"
+                                  onClick={() => removeTrainingLevel(profile)}
+                                >
+                                  Удалить уровень
+                                </button>
+                              </div>
+                            </>
+                          ) : null}
+                        </span>
+                      </div>
+
+                      <TelegramSelect
+                        aria-label="Учебный уровень"
+                        value={profile.training_level_id}
+                        onChange={(event) =>
+                          patchProfile(profile.style_id, profile.is_leader, {
+                            training_level_id: Number(event.target.value),
+                          })
+                        }
+                      >
+                        {trainingLevels(profile.style_id).map((level) => (
+                          <option key={level.id} value={level.id}>
+                            {level.title_en}
+                          </option>
+                        ))}
+                      </TelegramSelect>
+                    </div>
+                  )
+                })() : null}
+
+                {profile.competition_profiles.map((competition) => {
+                  const levels = competitionLevels(
+                    profile.style_id,
+                    competition.system_code,
+                  )
+                  const currentLevel = levels.find(
+                    (level) => level.id === competition.level_id,
+                  )
+                  const assignmentKey =
+                    `competition:${key}:${competition.system_code}`
+                  const assignmentMenuOpen = profileMenuKey === assignmentKey
+
+                  return (
+                    <div
+                      className="admin-profile-assignment admin-competition-block"
+                      key={competition.system_code}
+                    >
+                      <div className="admin-profile-assignment-heading">
+                        <div>
+                          <span>
+                            {competitionSystemLabel(competition.system_code)}
+                          </span>
+                          <strong>
+                            {currentLevel
+                              ? levelName(currentLevel)
+                              : 'Неизвестный класс'}
+                          </strong>
+                        </div>
+                        <span className="admin-profile-menu-wrap">
+                          <button
+                            type="button"
+                            className="admin-profile-menu-trigger"
+                            aria-label={`Действия класса ${competitionSystemLabel(competition.system_code)}`}
+                            aria-expanded={assignmentMenuOpen}
+                            onClick={() =>
+                              setProfileMenuKey((current) =>
+                                current === assignmentKey ? null : assignmentKey,
+                              )
+                            }
+                          >
+                            ⋯
+                          </button>
+                          {assignmentMenuOpen ? (
+                            <>
+                              <button
+                                type="button"
+                                className="admin-profile-menu-backdrop"
+                                aria-label="Закрыть меню класса"
+                                onClick={() => setProfileMenuKey(null)}
+                              />
+                              <div className="admin-profile-menu">
+                                <button
+                                  type="button"
+                                  className="admin-profile-menu-delete"
+                                  onClick={() =>
+                                    removeCompetitionProfile(
+                                      profile,
+                                      competition.system_code,
+                                    )
+                                  }
+                                >
+                                  Удалить класс
+                                </button>
+                              </div>
+                            </>
+                          ) : null}
+                        </span>
+                      </div>
+
+                      <TelegramSelect
+                        aria-label={competitionSystemLabel(competition.system_code)}
+                        value={competition.level_id}
+                        onChange={(event) =>
+                          patchCompetition(
+                            profile,
+                            competition.system_code,
+                            Number(event.target.value),
+                          )
+                        }
+                      >
+                        {levels.map((level) => (
+                          <option key={level.id} value={level.id}>
+                            {levelName(level)}
+                          </option>
+                        ))}
+                      </TelegramSelect>
+
+                      <div className="two-col">
+                        <Field label="Очки">
+                          <TelegramInput
+                            inputMode="decimal"
+                            value={competition.points ?? ''}
+                            onChange={(event) =>
+                              patchCompetitionMeta(
+                                profile,
+                                competition.system_code,
+                                {
+                                  points: nullableNumber(event.target.value),
+                                },
+                              )
+                            }
+                          />
+                        </Field>
+                        <Field label="External ID">
+                          <TelegramInput
+                            value={competition.external_profile_id ?? ''}
+                            onChange={(event) =>
+                              patchCompetitionMeta(
+                                profile,
+                                competition.system_code,
+                                {
+                                  external_profile_id: nullable(
+                                    event.target.value,
+                                  ),
+                                },
+                              )
+                            }
+                          />
+                        </Field>
+                      </div>
                     </div>
                   )
                 })}
+
+                {availableLevelOptions(profile).length > 0 ? (
+                  <div className="admin-add-level-row">
+                    <TelegramSelect
+                      aria-label="Добавить уровень или класс"
+                      value=""
+                      onChange={(event) =>
+                        applyLevelOption(profile, event.target.value)
+                      }
+                    >
+                      <option value="">+ Добавить уровень / класс</option>
+                      {availableLevelOptions(profile).map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </TelegramSelect>
+                  </div>
+                ) : null}
               </div>
             </Section>
           )
