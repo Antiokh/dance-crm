@@ -20,6 +20,17 @@ export type DanceStyleLevel = {
   title_ru: string | null
   title_sr: string | null
   rank_order: number
+  is_sport_achievement: boolean
+}
+
+export type DanceStyleCompetitionProfile = {
+  id: string
+  system_code: string
+  level_id: number
+  points: number | null
+  external_profile_id: string | null
+  last_synced_at: string | null
+  level: DanceStyleLevel | null
 }
 
 export type DanceStyleProfile = {
@@ -27,8 +38,9 @@ export type DanceStyleProfile = {
   is_leader: boolean
   is_trainer: boolean
   is_default: boolean
-  level_id: number | null
-  level: DanceStyleLevel | null
+  training_level_id: number | null
+  training_level: DanceStyleLevel | null
+  competition_profiles: DanceStyleCompetitionProfile[]
 }
 
 export type DanceStyle = {
@@ -80,6 +92,34 @@ function parseStyleLevel(value: unknown): DanceStyleLevel | null {
       typeof source.rank_order === 'number'
         ? source.rank_order
         : 0,
+    is_sport_achievement: source.is_sport_achievement === true,
+  }
+}
+
+function parseCompetitionProfile(
+  value: unknown,
+): DanceStyleCompetitionProfile | null {
+  const source = record(value)
+  if (
+    !source
+    || typeof source.id !== 'string'
+    || typeof source.system_code !== 'string'
+    || typeof source.level_id !== 'number'
+  ) {
+    return null
+  }
+
+  return {
+    id: source.id,
+    system_code: source.system_code,
+    level_id: source.level_id,
+    points:
+      typeof source.points === 'number'
+        ? source.points
+        : null,
+    external_profile_id: nullableString(source.external_profile_id),
+    last_synced_at: nullableString(source.last_synced_at),
+    level: parseStyleLevel(source.level),
   }
 }
 
@@ -92,11 +132,19 @@ function parseStyleProfile(value: unknown): DanceStyleProfile | null {
     is_leader: source.is_leader === true,
     is_trainer: source.is_trainer === true,
     is_default: source.is_default === true,
-    level_id:
-      typeof source.level_id === 'number'
-        ? source.level_id
+    training_level_id:
+      typeof source.training_level_id === 'number'
+        ? source.training_level_id
         : null,
-    level: parseStyleLevel(source.level),
+    training_level: parseStyleLevel(source.training_level),
+    competition_profiles: Array.isArray(source.competition_profiles)
+      ? source.competition_profiles
+          .map(parseCompetitionProfile)
+          .filter(
+            (profile): profile is DanceStyleCompetitionProfile =>
+              profile !== null,
+          )
+      : [],
   }
 }
 
