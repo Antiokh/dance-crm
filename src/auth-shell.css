@@ -89,7 +89,8 @@
 
 .quick-attend-cell {
   min-width: 0;
-  overflow: hidden;
+  box-sizing: border-box;
+  padding-right: 12px;
 }
 
 .quick-attend-control {
@@ -103,7 +104,6 @@
   justify-content: center;
   gap: 2px;
   box-sizing: border-box;
-  margin-right: 6px;
 }
 
 .quick-attend-switch-danger {
