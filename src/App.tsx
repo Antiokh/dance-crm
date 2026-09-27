@@ -15,6 +15,7 @@ import {
 } from './lib/auth'
 import type {
   AppRole,
+  DanceStyle,
   DancerSummary,
 } from './lib/dancerContext'
 import {
@@ -29,6 +30,7 @@ import {
   type DancerProfileData,
 } from './lib/profile'
 import {
+  changeClassBookingRole,
   setClassAttending,
   setEventAttending,
 } from './lib/quickAttend'
@@ -72,6 +74,7 @@ type ClassAttendState = {
   attending: boolean
   bookingId: string | null
   status: 'booked' | 'waitlisted' | null
+  roleId: number | null
 }
 
 function displayName(dancer: DancerSummary) {
@@ -244,15 +247,25 @@ function RoleBalanceIndicator({
   )
 }
 
+function roleShortLabel(roleId: number | null) {
+  if (roleId === 1) return 'Лид.'
+  if (roleId === 2) return 'Фолл.'
+  return roleId === null ? null : `Роль ${roleId}`
+}
+
 function QuickAttendToggle({
   checked,
   pending,
   danger = false,
+  roleLabel,
+  onRoleChange,
   onChange,
 }: {
   checked: boolean
   pending: boolean
   danger?: boolean
+  roleLabel?: string | null
+  onRoleChange?: () => void
   onChange: (checked: boolean) => void
 }) {
   return (
@@ -268,6 +281,19 @@ function QuickAttendToggle({
         aria-label={checked ? 'Я иду' : 'Отметиться: я иду'}
       />
       <span className="quick-attend-label">Я иду</span>
+      {roleLabel && onRoleChange ? (
+        <button
+          type="button"
+          className="quick-attend-role"
+          disabled={pending}
+          onClick={(event) => {
+            event.stopPropagation()
+            onRoleChange()
+          }}
+        >
+          {roleLabel}
+        </button>
+      ) : null}
     </span>
   )
 }
@@ -313,7 +339,13 @@ function LoadingBlock({ text }: { text: string }) {
   )
 }
 
-function DancerHome({ state }: { state: FeedState }) {
+function DancerHome({
+  state,
+  dancerStyles,
+}: {
+  state: FeedState
+  dancerStyles: DanceStyle[]
+}) {
   const [eventsExpanded, setEventsExpanded] = useState(false)
   const [eventOverrides, setEventOverrides] = useState<Record<string, boolean>>({})
   const [classOverrides, setClassOverrides] = useState<Record<string, ClassAttendState>>({})
@@ -356,12 +388,35 @@ function DancerHome({ state }: { state: FeedState }) {
   const eventAttending = (event: DanceEvent) =>
     eventOverrides[event.id] ?? event.attending
 
-  const classAttendState = (item: GroupClass): ClassAttendState =>
-    classOverrides[item.id] ?? {
+  const styleProfile = (item: GroupClass) =>
+    dancerStyles.find((style) => style.id === item.style.id) ?? null
+
+  const availableRoleIds = (item: GroupClass) => {
+    const profile = styleProfile(item)
+    if (!profile) return []
+
+    if (profile.role_ids.length > 0) {
+      return profile.role_ids
+    }
+
+    return profile.main_role === null ? [] : [profile.main_role]
+  }
+
+  const classAttendState = (item: GroupClass): ClassAttendState => {
+    const profile = styleProfile(item)
+    const roleIds = availableRoleIds(item)
+
+    return classOverrides[item.id] ?? {
       attending: item.booking_status !== null,
       bookingId: item.booking_id,
       status: item.booking_status,
+      roleId:
+        item.booking_role_id ??
+        profile?.main_role ??
+        roleIds[0] ??
+        null,
     }
+  }
 
   const toggleEvent = async (event: DanceEvent, attending: boolean) => {
     const key = `event:${event.id}`
@@ -393,6 +448,7 @@ function DancerHome({ state }: { state: FeedState }) {
         attending,
         bookingId: previous.bookingId,
         status: attending ? previous.status : null,
+        roleId: previous.roleId,
       },
     }))
     setPendingActions((current) => ({ ...current, [key]: true }))
@@ -401,6 +457,7 @@ function DancerHome({ state }: { state: FeedState }) {
       const actual = await setClassAttending({
         slotId: item.id,
         bookingId: previous.bookingId,
+        roleId: previous.roleId,
         attending,
       })
 
@@ -410,6 +467,52 @@ function DancerHome({ state }: { state: FeedState }) {
           attending: actual.attending,
           bookingId: actual.bookingId,
           status: actual.status,
+          roleId: actual.roleId,
+        },
+      }))
+    } catch (error) {
+      setClassOverrides((current) => ({ ...current, [item.id]: previous }))
+      setActionError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setPendingActions((current) => ({ ...current, [key]: false }))
+    }
+  }
+
+  const cycleClassRole = async (item: GroupClass) => {
+    const roleIds = availableRoleIds(item)
+    if (roleIds.length < 2) return
+
+    const key = `class:${item.id}`
+    const previous = classAttendState(item)
+    const currentIndex = Math.max(0, roleIds.indexOf(previous.roleId ?? roleIds[0]))
+    const nextRoleId = roleIds[(currentIndex + 1) % roleIds.length]
+
+    setActionError(null)
+    setClassOverrides((current) => ({
+      ...current,
+      [item.id]: {
+        ...previous,
+        roleId: nextRoleId,
+      },
+    }))
+
+    if (!previous.attending || !previous.bookingId) {
+      return
+    }
+
+    setPendingActions((current) => ({ ...current, [key]: true }))
+
+    try {
+      const actualRoleId = await changeClassBookingRole(
+        previous.bookingId,
+        nextRoleId,
+      )
+
+      setClassOverrides((current) => ({
+        ...current,
+        [item.id]: {
+          ...previous,
+          roleId: actualRoleId,
         },
       }))
     } catch (error) {
@@ -525,6 +628,14 @@ function DancerHome({ state }: { state: FeedState }) {
                       checked={attend.attending}
                       pending={pending}
                       danger={attend.status === 'waitlisted'}
+                      roleLabel={
+                        availableRoleIds(today.item).length > 1
+                          ? roleShortLabel(attend.roleId)
+                          : null
+                      }
+                      onRoleChange={() => {
+                        void cycleClassRole(today.item)
+                      }}
                       onChange={(checked) => {
                         void toggleClass(today.item, checked)
                       }}
@@ -626,6 +737,14 @@ function DancerHome({ state }: { state: FeedState }) {
                       checked={attend.attending}
                       pending={pending}
                       danger={attend.status === 'waitlisted'}
+                      roleLabel={
+                        availableRoleIds(item).length > 1
+                          ? roleShortLabel(attend.roleId)
+                          : null
+                      }
+                      onRoleChange={() => {
+                        void cycleClassRole(item)
+                      }}
                       onChange={(checked) => {
                         void toggleClass(item, checked)
                       }}
@@ -1086,7 +1205,10 @@ export default function App() {
             : 'tgui-page dancer-home-page'
         }
       >
-        <DancerHome state={feed} />
+        <DancerHome
+          state={feed}
+          dancerStyles={auth.context.styles}
+        />
       </section>
     )
   }

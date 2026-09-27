@@ -4,6 +4,7 @@ export type QuickAttendBooking = {
   id: string
   slot_id: string
   status: 'booked' | 'waitlisted'
+  dance_role_id: number | null
 }
 
 export type QuickAttendState = {
@@ -20,7 +21,7 @@ export async function loadQuickAttendState(): Promise<QuickAttendState> {
     supabase.rpc('get_my_event_attendance'),
     supabase
       .from('bookings')
-      .select('id, slot_id, status')
+      .select('id, slot_id, status, dance_role_id')
       .neq('status', 'cancelled'),
   ])
 
@@ -57,6 +58,10 @@ export async function loadQuickAttendState(): Promise<QuickAttendState> {
             id: row.id,
             slot_id: row.slot_id,
             status,
+            dance_role_id:
+              typeof row.dance_role_id === 'number'
+                ? row.dance_role_id
+                : null,
           }
         })
         .filter((value): value is QuickAttendBooking => value !== null)
@@ -81,20 +86,23 @@ export async function setEventAttending(
 export async function setClassAttending({
   slotId,
   bookingId,
+  roleId,
   attending,
 }: {
   slotId: string
   bookingId: string | null
+  roleId: number | null
   attending: boolean
 }): Promise<{
   attending: boolean
   bookingId: string | null
   status: 'booked' | 'waitlisted' | null
+  roleId: number | null
 }> {
   if (attending) {
     const { data, error } = await supabase.rpc('book_class_slot', {
       p_slot_id: slotId,
-      p_dance_role_id: null,
+      p_dance_role_id: roleId,
     })
 
     if (error) throw error
@@ -103,6 +111,7 @@ export async function setClassAttending({
     const row = rawRow as {
       id?: unknown
       status?: unknown
+      dance_role_id?: unknown
     } | null
 
     const status = bookingStatus(row?.status)
@@ -114,6 +123,10 @@ export async function setClassAttending({
       attending: true,
       bookingId: row.id,
       status,
+      roleId:
+        typeof row.dance_role_id === 'number'
+          ? row.dance_role_id
+          : roleId,
     }
   }
 
@@ -139,6 +152,7 @@ export async function setClassAttending({
       attending: false,
       bookingId: null,
       status: null,
+      roleId,
     }
   }
 
@@ -152,5 +166,29 @@ export async function setClassAttending({
     attending: false,
     bookingId: targetBookingId,
     status: null,
+    roleId,
   }
+}
+
+export async function changeClassBookingRole(
+  bookingId: string,
+  roleId: number,
+): Promise<number> {
+  const { data, error } = await supabase.rpc('change_my_booking_role', {
+    p_booking_id: bookingId,
+    p_dance_role_id: roleId,
+  })
+
+  if (error) throw error
+
+  const rawRow = Array.isArray(data) ? data[0] : data
+  const row = rawRow as {
+    dance_role_id?: unknown
+  } | null
+
+  if (!row || typeof row.dance_role_id !== 'number') {
+    throw new Error('Booking role response is invalid')
+  }
+
+  return row.dance_role_id
 }

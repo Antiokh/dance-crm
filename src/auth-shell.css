@@ -172,3 +172,23 @@
   border-radius: 50%;
   box-sizing: border-box;
 }
+
+
+.quick-attend-role {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(
+    --tg-theme-accent-text-color,
+    var(--tg-theme-link-color, #2481cc)
+  );
+  font: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.quick-attend-role:disabled {
+  opacity: 0.5;
+}
