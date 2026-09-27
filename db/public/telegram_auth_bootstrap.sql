@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   public
 -- Function: telegram_auth_bootstrap
--- Updated:  2026-09-27T00:01:01.937Z
+-- Updated:  2026-09-27T06:51:08.309Z
 
 -- overload
 -- language: plpgsql
@@ -26,6 +26,7 @@ declare
   v_dance_roles jsonb;
   v_style record;
   v_style_data jsonb;
+  v_style_role_ids jsonb;
 begin
   if p_telegram_id is null or p_telegram_id <= 0 then
     raise exception 'invalid telegram id' using errcode = '22023';
@@ -106,13 +107,23 @@ begin
     using v_dancer.id;
 
     if v_style_data is not null then
+      select coalesce(
+        jsonb_agg(dsr.role_id order by dsr.role_id),
+        '[]'::jsonb
+      )
+      into v_style_role_ids
+      from public.dancer_style_roles dsr
+      where dsr.dancer_id = v_dancer.id
+        and dsr.style_id = v_style.id;
+
       v_styles := v_styles || jsonb_build_array(
         jsonb_build_object(
           'id', v_style.id,
           'title_en', v_style.title_en,
           'title_ru', v_style.title_ru,
           'title_sr', v_style.title_sr,
-          'is_partner_dance', v_style.is_partner_dance
+          'is_partner_dance', v_style.is_partner_dance,
+          'role_ids', v_style_role_ids
         ) || v_style_data
       );
     end if;
