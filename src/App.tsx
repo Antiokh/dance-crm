@@ -366,13 +366,16 @@ function DancerHome({
     )
   }
 
+  const data = data
+  if (!data) return null
+
   const todayItems: TodayItem[] = [
-    ...state.data.today_events.map((event) => ({
+    ...data.today_events.map((event) => ({
       kind: 'event' as const,
       startsAt: event.starts_at,
       event,
     })),
-    ...state.data.today_classes.map((item) => ({
+    ...data.today_classes.map((item) => ({
       kind: 'class' as const,
       startsAt: item.starts_at,
       item,
@@ -382,9 +385,9 @@ function DancerHome({
   ))
 
   const visibleEvents = eventsExpanded
-    ? state.data.events
-    : state.data.events.slice(0, 2)
-  const hiddenEventCount = Math.max(0, state.data.events.length - 2)
+    ? data.events
+    : data.events.slice(0, 2)
+  const hiddenEventCount = Math.max(0, data.events.length - 2)
 
   const eventAttending = (event: DanceEvent) =>
     eventOverrides[event.id] ?? event.attending
@@ -532,10 +535,10 @@ function DancerHome({
         </div>
       )}
 
-      {state.data.attention.length > 0 && (
+      {data.attention.length > 0 && (
         <Section className="tgui-section dancer-home-attention">
           <List className="tgui-trip-list">
-            {state.data.attention.map((item) => {
+            {data.attention.map((item) => {
               const event = item.event
               const attending = event ? eventAttending(event) : false
               const pending = event
@@ -712,8 +715,8 @@ function DancerHome({
 
       <Section className="tgui-section" header="Ближайшие занятия">
         <List className="tgui-trip-list">
-          {state.data.classes.length > 0 ? (
-            state.data.classes.map((item) => {
+          {data.classes.length > 0 ? (
+            data.classes.map((item) => {
               const attend = classAttendState(item)
               const pending = Boolean(
                 pendingActions[`class:${item.id}`],
@@ -789,6 +792,9 @@ function InfoPage({ state }: { state: SchoolState }) {
     )
   }
 
+  const data = data
+  if (!data) return null
+
   return (
     <section className="tgui-page dancer-school-page">
       <TabsList className="tgui-city-tabs dancer-school-tabs">
@@ -809,7 +815,7 @@ function InfoPage({ state }: { state: SchoolState }) {
       {view === 'groups' && (
         <Section className="tgui-section">
           <List className="tgui-trip-list">
-            {state.data.groups.length > 0 ? state.data.groups.map((group) => (
+            {data.groups.length > 0 ? data.groups.map((group) => (
               <Cell
                 key={group.id}
                 className="tgui-trip-cell"
@@ -833,7 +839,7 @@ function InfoPage({ state }: { state: SchoolState }) {
       {view === 'trainers' && (
         <Section className="tgui-section">
           <List className="tgui-trip-list">
-            {state.data.trainers.length > 0 ? state.data.trainers.map((trainer) => (
+            {data.trainers.length > 0 ? data.trainers.map((trainer) => (
               <Cell
                 key={trainer.id}
                 className="tgui-trip-cell"
@@ -851,7 +857,7 @@ function InfoPage({ state }: { state: SchoolState }) {
       {view === 'venues' && (
         <Section className="tgui-section">
           <List className="tgui-trip-list">
-            {state.data.venues.length > 0 ? state.data.venues.map((venue) => (
+            {data.venues.length > 0 ? data.venues.map((venue) => (
               <Cell
                 key={venue.id}
                 className="tgui-trip-cell"
@@ -870,7 +876,7 @@ function InfoPage({ state }: { state: SchoolState }) {
       {view === 'styles' && (
         <Section className="tgui-section">
           <List className="tgui-trip-list">
-            {state.data.styles.length > 0 ? state.data.styles.map((style) => (
+            {data.styles.length > 0 ? data.styles.map((style) => (
               <Cell
                 key={style.id}
                 className="tgui-trip-cell"
@@ -905,9 +911,12 @@ function ProfilePage({ state }: { state: ProfileState }) {
     )
   }
 
+  const data = data
+  if (!data) return null
+
   const activeSubscription =
-    state.data.subscriptions.find((item) => item.effectiveStatus === 'active')
-    ?? state.data.subscriptions[0]
+    data.subscriptions.find((item) => item.effectiveStatus === 'active')
+    ?? data.subscriptions[0]
     ?? null
 
   return (
@@ -942,7 +951,7 @@ function ProfilePage({ state }: { state: ProfileState }) {
 
       <Section className="tgui-section" header="Посещённые занятия">
         <List className="tgui-trip-list">
-          {state.data.attendedClasses.length > 0 ? state.data.attendedClasses.map((item) => (
+          {data.attendedClasses.length > 0 ? data.attendedClasses.map((item) => (
             <Cell
               key={item.id}
               className="tgui-trip-cell"
@@ -1462,57 +1471,55 @@ export default function App() {
 
       <main>{mainContent()}</main>
 
-      {showBottomNav && (
+      {showBottomNav && role === 'administrator' && (
         <Tabbar className="tgui-bottom-nav">
-          {role === 'administrator' ? (
-            <>
-              <Tabbar.Item
-                selected={adminView === 'dancers'}
-                text="Танцоры"
-                onClick={() => switchAdminView('dancers')}
-              >
-                <AdminNavIcon view="dancers" />
-              </Tabbar.Item>
-              <Tabbar.Item
-                selected={adminView === 'schedule'}
-                text="Расписание"
-                onClick={() => switchAdminView('schedule')}
-              >
-                <AdminNavIcon view="schedule" />
-              </Tabbar.Item>
-              <Tabbar.Item
-                selected={adminView === 'settings'}
-                text="Настройки"
-                onClick={() => switchAdminView('settings')}
-              >
-                <AdminNavIcon view="settings" />
-              </Tabbar.Item>
-            </>
-          ) : (
-            <>
-              <Tabbar.Item
-                selected={view === 'activities'}
-                text="Активности"
-                onClick={() => switchView('activities')}
-              >
-                <NavIcon view="activities" />
-              </Tabbar.Item>
-              <Tabbar.Item
-                selected={view === 'info'}
-                text="Инфо"
-                onClick={() => switchView('info')}
-              >
-                <NavIcon view="info" />
-              </Tabbar.Item>
-              <Tabbar.Item
-                selected={view === 'profile'}
-                text="Профиль"
-                onClick={() => switchView('profile')}
-              >
-                <NavIcon view="profile" />
-              </Tabbar.Item>
-            </>
-          )}
+          <Tabbar.Item
+            selected={adminView === 'dancers'}
+            text="Танцоры"
+            onClick={() => switchAdminView('dancers')}
+          >
+            <AdminNavIcon view="dancers" />
+          </Tabbar.Item>
+          <Tabbar.Item
+            selected={adminView === 'schedule'}
+            text="Расписание"
+            onClick={() => switchAdminView('schedule')}
+          >
+            <AdminNavIcon view="schedule" />
+          </Tabbar.Item>
+          <Tabbar.Item
+            selected={adminView === 'settings'}
+            text="Настройки"
+            onClick={() => switchAdminView('settings')}
+          >
+            <AdminNavIcon view="settings" />
+          </Tabbar.Item>
+        </Tabbar>
+      )}
+
+      {showBottomNav && role !== 'administrator' && (
+        <Tabbar className="tgui-bottom-nav">
+          <Tabbar.Item
+            selected={view === 'activities'}
+            text="Активности"
+            onClick={() => switchView('activities')}
+          >
+            <NavIcon view="activities" />
+          </Tabbar.Item>
+          <Tabbar.Item
+            selected={view === 'info'}
+            text="Инфо"
+            onClick={() => switchView('info')}
+          >
+            <NavIcon view="info" />
+          </Tabbar.Item>
+          <Tabbar.Item
+            selected={view === 'profile'}
+            text="Профиль"
+            onClick={() => switchView('profile')}
+          >
+            <NavIcon view="profile" />
+          </Tabbar.Item>
         </Tabbar>
       )}
     </div>
