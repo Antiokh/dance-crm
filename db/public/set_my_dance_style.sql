@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   public
 -- Function: set_my_dance_style
--- Updated:  2026-09-26T20:35:21.258Z
+-- Updated:  2026-09-27T07:22:00.387Z
 
 -- overload
 -- language: plpgsql
@@ -15,59 +15,80 @@ CREATE OR REPLACE FUNCTION public.set_my_dance_style(p_style_id smallint, p_enab
  SET search_path TO ''
 AS $function$
 declare
-  v_auth_user_id uuid := auth.uid();
-  v_dancer_id uuid;
-  v_table_name text;
+  v_dancer_id uuid := private.current_dancer_id();
   v_is_partner boolean;
   v_role smallint := p_main_role;
+  v_is_leader boolean;
 begin
-  if v_auth_user_id is null then
-    raise exception 'authentication required' using errcode = '42501';
-  end if;
-
-  select d.id
-  into v_dancer_id
-  from public.dancer d
-  where d.auth_user_id = v_auth_user_id;
-
   if v_dancer_id is null then
     raise exception 'dancer profile not found' using errcode = 'P0002';
   end if;
 
-  select s.table_name, s.is_partner_dance
-  into v_table_name, v_is_partner
+  select s.is_partner_dance
+  into v_is_partner
   from public.l_dance_style s
   where s.id = p_style_id;
 
-  if v_table_name is null or v_table_name !~ '^dancer_[a-z0-9_]+$' then
-    raise exception 'invalid style table' using errcode = '22023';
+  if not found then
+    raise exception 'dance style not found' using errcode = 'P0002';
   end if;
 
-  if not coalesce(v_is_partner, true) then
-    v_role := null;
-  elsif v_role is not null
-    and not exists (
-      select 1 from public.l_dance_role r where r.id = v_role
-    )
-  then
-    raise exception 'invalid dance role' using errcode = '22023';
+  if not p_enabled then
+    delete from public.dancer_style_profile
+    where dancer_id = v_dancer_id
+      and style_id = p_style_id;
+
+    return public.get_my_dancer_context();
   end if;
 
-  if p_enabled then
-    execute format(
-      'insert into public.%I (id, main_role)
-       values ($1, $2)
-       on conflict (id) do update set main_role = excluded.main_role',
-      v_table_name
-    )
-    using v_dancer_id, v_role;
+  if coalesce(v_is_partner, true) then
+    if v_role is null then
+      select case when p.is_leader then 1::smallint else 2::smallint end
+      into v_role
+      from public.dancer_style_profile p
+      where p.dancer_id = v_dancer_id
+        and p.style_id = p_style_id
+      order by p.is_default desc, p.created_at, p.id
+      limit 1;
+    end if;
+
+    if v_role is null then
+      select d.primary_role
+      into v_role
+      from public.dancer d
+      where d.id = v_dancer_id;
+    end if;
+
+    if v_role not in (1, 2) then
+      raise exception 'dance role is required for partner dance'
+        using errcode = '23514';
+    end if;
+
+    v_is_leader := v_role = 1;
   else
-    execute format(
-      'delete from public.%I where id = $1',
-      v_table_name
-    )
-    using v_dancer_id;
+    v_is_leader := false;
   end if;
+
+  update public.dancer_style_profile
+  set is_default = false
+  where dancer_id = v_dancer_id
+    and style_id = p_style_id
+    and is_default;
+
+  insert into public.dancer_style_profile (
+    dancer_id,
+    style_id,
+    is_leader,
+    is_default
+  )
+  values (
+    v_dancer_id,
+    p_style_id,
+    v_is_leader,
+    true
+  )
+  on conflict (dancer_id, style_id, is_leader)
+  do update set is_default = true;
 
   return public.get_my_dancer_context();
 end;
