@@ -178,7 +178,7 @@ function classDescription(
     status === 'booked'
       ? 'Записан'
       : status === 'waitlisted'
-        ? 'Лист ожидания'
+        ? 'Ожидает подтверждения'
         : null,
   ].filter(Boolean).join(' · ') || undefined
 }
@@ -186,10 +186,12 @@ function classDescription(
 function QuickAttendToggle({
   checked,
   pending,
+  danger = false,
   onChange,
 }: {
   checked: boolean
   pending: boolean
+  danger?: boolean
   onChange: (checked: boolean) => void
 }) {
   return (
@@ -198,6 +200,7 @@ function QuickAttendToggle({
       onClick={(event) => event.stopPropagation()}
     >
       <TelegramSwitch
+        className={danger ? 'quick-attend-switch-danger' : undefined}
         checked={checked}
         disabled={pending}
         onChange={(event) => onChange(event.target.checked)}
@@ -362,7 +365,7 @@ function DancerHome({ state }: { state: FeedState }) {
               return (
                 <Cell
                   key={item.id}
-                  className="tgui-trip-cell"
+                  className="tgui-trip-cell quick-attend-cell"
                   before={<span className="dancer-home-pin" aria-hidden="true">📌</span>}
                   after={event ? (
                     <QuickAttendToggle
@@ -402,7 +405,7 @@ function DancerHome({ state }: { state: FeedState }) {
                 return (
                   <Cell
                     key={`event-${today.event.id}`}
-                    className="tgui-trip-cell"
+                    className="tgui-trip-cell quick-attend-cell"
                     before={<TimeBadge value={today.event.starts_at} />}
                     after={
                       <QuickAttendToggle
@@ -430,12 +433,13 @@ function DancerHome({ state }: { state: FeedState }) {
               return (
                 <Cell
                   key={`class-${today.item.id}`}
-                  className="tgui-trip-cell"
+                  className="tgui-trip-cell quick-attend-cell"
                   before={<TimeBadge value={today.item.starts_at} />}
                   after={
                     <QuickAttendToggle
                       checked={attend.attending}
                       pending={pending}
+                      danger={attend.status === 'waitlisted'}
                       onChange={(checked) => {
                         void toggleClass(today.item, checked)
                       }}
@@ -469,7 +473,7 @@ function DancerHome({ state }: { state: FeedState }) {
               return (
                 <Cell
                   key={event.id}
-                  className="tgui-trip-cell"
+                  className="tgui-trip-cell quick-attend-cell"
                   before={<DateBadge value={event.starts_at} />}
                   after={
                     <QuickAttendToggle
@@ -521,12 +525,13 @@ function DancerHome({ state }: { state: FeedState }) {
               return (
                 <Cell
                   key={item.id}
-                  className="tgui-trip-cell"
+                  className="tgui-trip-cell quick-attend-cell"
                   before={<DateBadge value={item.starts_at} />}
                   after={
                     <QuickAttendToggle
                       checked={attend.attending}
                       pending={pending}
+                      danger={attend.status === 'waitlisted'}
                       onChange={(checked) => {
                         void toggleClass(item, checked)
                       }}

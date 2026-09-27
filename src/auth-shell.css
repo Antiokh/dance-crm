@@ -87,13 +87,28 @@
 }
 
 
+.quick-attend-cell {
+  min-width: 0;
+  box-sizing: border-box;
+  padding-right: 12px;
+}
+
 .quick-attend-control {
   display: inline-flex;
-  min-width: 52px;
+  width: 54px;
+  min-width: 54px;
+  max-width: 54px;
+  flex: 0 0 54px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
+  box-sizing: border-box;
+}
+
+.quick-attend-switch-danger {
+  --tgui--link_color: var(--tg-theme-destructive-text-color, #d14b4b);
+  --tgui--button_color: var(--tg-theme-destructive-text-color, #d14b4b);
 }
 
 .quick-attend-label {
