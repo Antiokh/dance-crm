@@ -46,7 +46,7 @@ These functions are executable only by `service_role`:
 - `public.social_process_command(...)`
 - `public.social_mark_command_failure(...)`
 - `public.social_get_destination(...)`
-- `public.social_get_event_publication_context(...)`
+- `public.social_get_publication_context(...)`
 - `public.social_claim_publication_jobs(...)`
 - `public.social_mark_publish_started(...)`
 - `public.social_patch_job_progress(...)`
