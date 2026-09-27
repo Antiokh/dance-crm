@@ -58,6 +58,11 @@ enabled = true
 verify_jwt = true
 entrypoint = "./functions/event-weather/index.ts"
 
+[functions.social-command-worker]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/social-command-worker/index.ts"
+
 [functions.social-publish-dispatch]
 enabled = true
 verify_jwt = false
