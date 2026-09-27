@@ -41,6 +41,10 @@ type PublicationContext = {
   publication_type: ClaimedJob['publication_type']
   version: number
   payload: JsonRecord
+  event_state: {
+    published: boolean
+    cancelled_at: string | null
+  }
   balance: {
     leader: number
     follower: number
@@ -187,6 +191,7 @@ async function loadContext(publicationId: string): Promise<PublicationContext> {
 
   const source = data as JsonRecord
   const balance = record(source.balance)
+  const eventState = record(source.event_state)
   const telegramMessage = record(source.telegram_message)
 
   return {
@@ -195,6 +200,10 @@ async function loadContext(publicationId: string): Promise<PublicationContext> {
     publication_type: source.publication_type as PublicationContext['publication_type'],
     version: numberValue(source.version),
     payload: record(source.payload),
+    event_state: {
+      published: eventState.published === true,
+      cancelled_at: optionalText(eventState.cancelled_at),
+    },
     balance: {
       leader: numberValue(balance.leader),
       follower: numberValue(balance.follower),
@@ -1032,6 +1041,21 @@ async function publishJob(
   context: PublicationContext,
   copy: RenderedCopy,
 ) {
+  if (context.publication_type === 'cancelled') {
+    if (context.event_state.cancelled_at === null) {
+      throw new TerminalPublishError(
+        'Cancellation publication was superseded because the event is active again',
+      )
+    }
+  } else if (
+    !context.event_state.published
+    || context.event_state.cancelled_at !== null
+  ) {
+    throw new TerminalPublishError(
+      'Event is no longer publishable',
+    )
+  }
+
   if (!destination.enabled) {
     throw new TerminalPublishError(
       `Destination ${destination.key} is disabled`,
