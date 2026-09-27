@@ -39,7 +39,18 @@ export type GroupClass = {
   booking_status: 'booked' | 'waitlisted' | null
 }
 
+export type AttentionItem = {
+  id: string
+  title: string
+  body: string | null
+  priority: number
+  event: DanceEvent | null
+}
+
 export type DancerHomeFeed = {
+  attention: AttentionItem[]
+  today_events: DanceEvent[]
+  today_classes: GroupClass[]
   events: DanceEvent[]
   classes: GroupClass[]
 }
@@ -147,10 +158,39 @@ function parseClass(value: unknown): GroupClass | null {
   }
 }
 
+function parseAttention(value: unknown): AttentionItem | null {
+  const source = object(value)
+
+  if (
+    !source ||
+    typeof source.id !== 'string' ||
+    typeof source.title !== 'string'
+  ) {
+    return null
+  }
+
+  return {
+    id: source.id,
+    title: source.title,
+    body: nullableString(source.body),
+    priority: typeof source.priority === 'number' ? source.priority : 0,
+    event: parseEvent(source.event),
+  }
+}
+
+function parseList<T>(
+  value: unknown,
+  parser: (item: unknown) => T | null,
+): T[] {
+  return Array.isArray(value)
+    ? value.map(parser).filter((item): item is T => item !== null)
+    : []
+}
+
 export async function loadDancerHomeFeed(): Promise<DancerHomeFeed> {
   const { data, error } = await supabase.rpc('get_my_dancer_home_feed', {
-    p_event_limit: 6,
-    p_class_limit: 6,
+    p_event_limit: 20,
+    p_class_limit: 20,
   })
 
   if (error) throw error
@@ -159,11 +199,10 @@ export async function loadDancerHomeFeed(): Promise<DancerHomeFeed> {
   if (!source) throw new Error('Dancer home feed is unavailable')
 
   return {
-    events: Array.isArray(source.events)
-      ? source.events.map(parseEvent).filter((item): item is DanceEvent => item !== null)
-      : [],
-    classes: Array.isArray(source.classes)
-      ? source.classes.map(parseClass).filter((item): item is GroupClass => item !== null)
-      : [],
+    attention: parseList(source.attention, parseAttention),
+    today_events: parseList(source.today_events, parseEvent),
+    today_classes: parseList(source.today_classes, parseClass),
+    events: parseList(source.events, parseEvent),
+    classes: parseList(source.classes, parseClass),
   }
 }
