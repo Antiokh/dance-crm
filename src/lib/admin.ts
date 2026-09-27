@@ -60,6 +60,9 @@ export type AdminEvent = {
   style_id: number | null
   published: boolean
   cancelled_at: string | null
+  leader_going_count: number
+  follower_going_count: number
+  other_going_count: number
 }
 
 export type AdminEventTemplate = {
@@ -267,7 +270,7 @@ export async function loadAdminCatalog(): Promise<AdminCatalog> {
       .select('group_id, trainer_id, trainer_role, starts_on, ends_on, created_at'),
     supabase
       .from('dance_events')
-      .select('id, event_type, title, description, starts_at, ends_at, venue_id, style_id, published, cancelled_at')
+      .select('id, event_type, title, description, starts_at, ends_at, venue_id, style_id, published, cancelled_at, leader_going_count, follower_going_count, other_going_count')
       .order('starts_at'),
     supabase
       .from('event_templates')
@@ -366,6 +369,9 @@ export async function loadAdminCatalog(): Promise<AdminCatalog> {
     style_id: numberOrNull(row.style_id),
     published: row.published === true,
     cancelled_at: stringOrNull(row.cancelled_at),
+    leader_going_count: typeof row.leader_going_count === 'number' ? row.leader_going_count : 0,
+    follower_going_count: typeof row.follower_going_count === 'number' ? row.follower_going_count : 0,
+    other_going_count: typeof row.other_going_count === 'number' ? row.other_going_count : 0,
   }))
 
   const event_templates: AdminEventTemplate[] = (eventTemplatesResult.data ?? []).map((row) => ({
@@ -489,7 +495,13 @@ export async function saveAdminGroup(input: AdminGroupInput) {
 
 export type AdminEventInput = Omit<
   AdminEvent,
-  'id' | 'starts_at' | 'ends_at' | 'cancelled_at'
+  'id'
+  | 'starts_at'
+  | 'ends_at'
+  | 'cancelled_at'
+  | 'leader_going_count'
+  | 'follower_going_count'
+  | 'other_going_count'
 > & {
   id: string | null
   starts_local: string
