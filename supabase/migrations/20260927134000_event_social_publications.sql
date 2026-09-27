@@ -153,7 +153,6 @@ values
     'telegram',
     1100,
     jsonb_build_object(
-      'bot_username', 'dancer_robot',
       'parse_mode', 'HTML'
     )
   ),
