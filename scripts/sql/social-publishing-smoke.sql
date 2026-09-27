@@ -115,7 +115,7 @@ create table public.event_attendance (
 );
 
 alter table public.event_attendance enable row level security;
-grant select on public.event_attendance to authenticated;
+grant select on public.dance_events, public.event_attendance to authenticated;
 create policy event_attendance_self on public.event_attendance
 for select to authenticated
 using (dancer_id = private.current_dancer_id());
