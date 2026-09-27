@@ -3,7 +3,7 @@
 -- Schema:   public
 -- Entity:   tables
 -- Mode:     table_bundle
--- Updated:  2026-09-27T06:11:01.435Z
+-- Updated:  2026-09-27T06:52:03.000Z
 
 -- table: bookings
 
@@ -355,6 +355,21 @@ CREATE POLICY dancer_salsa_delete_self ON public.dancer_salsa FOR DELETE TO auth
 CREATE POLICY dancer_salsa_insert_self ON public.dancer_salsa FOR INSERT TO authenticated WITH CHECK ((id = private.current_dancer_id()));
 CREATE POLICY dancer_salsa_select_self ON public.dancer_salsa FOR SELECT TO authenticated USING ((id = private.current_dancer_id()));
 CREATE POLICY dancer_salsa_update_self ON public.dancer_salsa FOR UPDATE TO authenticated USING ((id = private.current_dancer_id())) WITH CHECK ((id = private.current_dancer_id()));
+
+-- table: dancer_style_roles
+
+CREATE TABLE public.dancer_style_roles (
+  dancer_id uuid NOT NULL,
+  style_id smallint NOT NULL,
+  role_id smallint NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT dancer_style_roles_dancer_id_fkey FOREIGN KEY (dancer_id) REFERENCES dancer(id) ON DELETE CASCADE,
+  CONSTRAINT dancer_style_roles_pkey PRIMARY KEY (dancer_id, style_id, role_id),
+  CONSTRAINT dancer_style_roles_role_id_fkey FOREIGN KEY (role_id) REFERENCES l_dance_role(id) ON DELETE RESTRICT,
+  CONSTRAINT dancer_style_roles_style_id_fkey FOREIGN KEY (style_id) REFERENCES l_dance_style(id) ON DELETE CASCADE
+);
+ALTER TABLE public.dancer_style_roles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY dancer_style_roles_select_own ON public.dancer_style_roles FOR SELECT TO authenticated USING ((dancer_id = private.current_dancer_id()));
 
 -- table: dancer_wcs
 
