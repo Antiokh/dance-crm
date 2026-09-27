@@ -178,7 +178,7 @@ function classDescription(
     status === 'booked'
       ? 'Записан'
       : status === 'waitlisted'
-        ? 'Лист ожидания'
+        ? 'Ожидает подтверждения'
         : null,
   ].filter(Boolean).join(' · ') || undefined
 }
