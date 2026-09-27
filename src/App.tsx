@@ -21,7 +21,7 @@ import {
   type GroupClass,
   type HomeStyle,
 } from './lib/homeFeed'
-import { getTelegramUser } from './lib/telegram'
+import { getTelegramUser, setTelegramVerticalSwipesEnabled } from './lib/telegram'
 import { getNativeTelegramUser, getTmaDiagnostics } from './lib/tma'
 
 const initialAuth: AuthState = {
@@ -254,6 +254,10 @@ export default function App() {
   })
 
   useEffect(() => {
+    setTelegramVerticalSwipesEnabled(false)
+  }, [])
+
+  useEffect(() => {
     let cancelled = false
 
     void authenticateTelegram()
@@ -312,9 +316,24 @@ export default function App() {
     [dancer, telegramUser],
   )
 
+  const allowHeaderSwipe = () => {
+    setTelegramVerticalSwipesEnabled(true)
+  }
+
+  const lockVerticalSwipes = () => {
+    window.setTimeout(() => {
+      setTelegramVerticalSwipesEnabled(false)
+    }, 250)
+  }
+
   return (
-    <main className="app-shell">
-      <header className="topbar">
+    <div className="app-shell">
+      <header
+        className="topbar"
+        onTouchStart={allowHeaderSwipe}
+        onTouchEnd={lockVerticalSwipes}
+        onTouchCancel={lockVerticalSwipes}
+      >
         <div>
           <div className="eyebrow">
             DANCERS <span className="build-inline">· {buildLabel}</span>
@@ -353,7 +372,8 @@ export default function App() {
         ) : null}
       </header>
 
-      <section className="tgui-page">
+      <main>
+        <section className="tgui-page">
         {loading ? (
           <Placeholder
             header="Авторизация…"
@@ -385,7 +405,8 @@ export default function App() {
         ) : (
           <DancerHome state={feed} />
         )}
-      </section>
-    </main>
+        </section>
+      </main>
+    </div>
   )
 }
