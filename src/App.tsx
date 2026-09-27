@@ -316,24 +316,9 @@ export default function App() {
     [dancer, telegramUser],
   )
 
-  const allowHeaderSwipe = () => {
-    setTelegramVerticalSwipesEnabled(true)
-  }
-
-  const lockVerticalSwipes = () => {
-    window.setTimeout(() => {
-      setTelegramVerticalSwipesEnabled(false)
-    }, 250)
-  }
-
   return (
     <div className="app-shell">
-      <header
-        className="topbar"
-        onTouchStart={allowHeaderSwipe}
-        onTouchEnd={lockVerticalSwipes}
-        onTouchCancel={lockVerticalSwipes}
-      >
+      <header className="topbar">
         <div>
           <div className="eyebrow">
             DANCERS <span className="build-inline">· {buildLabel}</span>
