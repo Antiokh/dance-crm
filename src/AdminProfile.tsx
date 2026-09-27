@@ -1180,6 +1180,9 @@ function EventEditor({
   const [type, setType] = useState<AdminEvent['event_type']>(event?.event_type ?? 'party')
   const [title, setTitle] = useState(event?.title ?? '')
   const [description, setDescription] = useState(event?.description ?? '')
+  const [announcementImageUrl, setAnnouncementImageUrl] = useState(
+    event?.announcement_image_url ?? '',
+  )
   const [startsLocal, setStartsLocal] = useState(isoToLocalInput(event?.starts_at ?? null))
   const [endsLocal, setEndsLocal] = useState(isoToLocalInput(event?.ends_at ?? null))
   const [venueId, setVenueId] = useState(event?.venue_id ?? '')
@@ -1249,6 +1252,7 @@ function EventEditor({
     setType(template.event_type)
     setTitle(template.title)
     setDescription(template.description ?? '')
+    setAnnouncementImageUrl(template.announcement_image_url ?? '')
     setVenueId(template.venue_id ?? '')
     setStyleId(template.style_id === null ? '' : String(template.style_id))
     setEndsLocal(addLocalMinutes(startsLocal, template.duration_minutes))
@@ -1267,6 +1271,7 @@ function EventEditor({
         event_type: type,
         title,
         description: nullable(description),
+        announcement_image_url: nullable(announcementImageUrl),
         duration_minutes: eventDurationMinutes(startsLocal, endsLocal),
         venue_id: nullable(venueId),
         style_id: nullableNumber(styleId),
@@ -1293,6 +1298,7 @@ function EventEditor({
         event_type: type,
         title,
         description: nullable(description),
+        announcement_image_url: nullable(announcementImageUrl),
         starts_local: startsLocal,
         ends_local: endsLocal,
         venue_id: nullable(venueId),
@@ -1357,6 +1363,15 @@ function EventEditor({
 
           <Field label="Описание">
             <TelegramTextarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
+          </Field>
+
+          <Field label="Картинка для анонса">
+            <TelegramInput
+              type="url"
+              value={announcementImageUrl}
+              onChange={(e) => setAnnouncementImageUrl(e.target.value)}
+              placeholder="https://… (нужна для Instagram)"
+            />
           </Field>
 
           <div className="two-col">
