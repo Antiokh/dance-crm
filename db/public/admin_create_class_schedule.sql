@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   public
 -- Function: admin_create_class_schedule
--- Updated:  2026-09-26T20:35:28.150Z
+-- Updated:  2026-09-27T00:31:05.740Z
 
 -- overload
 -- language: plpgsql
@@ -64,13 +64,7 @@ begin
     on conflict do nothing;
   end loop;
 
-  perform private.materialize_class_schedule(
-    v_schedule_id,
-    least(
-      coalesce(p_valid_until, current_date + 56),
-      current_date + 56
-    )
-  );
+  perform private.ensure_next_class_slot(v_schedule_id);
 
   return v_schedule_id;
 end;
