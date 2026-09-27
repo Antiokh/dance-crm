@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   public
 -- Function: admin_save_group
--- Updated:  2026-09-27T09:41:03.461Z
+-- Updated:  2026-09-27T09:51:00.707Z
 
 -- overload
 -- language: plpgsql
@@ -30,7 +30,10 @@ begin
   end;
 
   if v_group_id is null then
+    v_group_id := extensions.gen_random_uuid();
+
     insert into public.dance_group(
+      id,
       style_id,
       description,
       level_id,
@@ -42,6 +45,7 @@ begin
       active
     )
     values(
+      v_group_id,
       (p_payload->>'style_id')::smallint,
       nullif(btrim(p_payload->>'description'),''),
       nullif(p_payload->>'level_id','')::bigint,
@@ -54,8 +58,7 @@ begin
       nullif(p_payload->>'starts_on','')::date,
       nullif(p_payload->>'ends_on','')::date,
       coalesce((p_payload->>'active')::boolean,true)
-    )
-    returning id into v_group_id;
+    );
   else
     update public.dance_group
     set style_id=(p_payload->>'style_id')::smallint,
