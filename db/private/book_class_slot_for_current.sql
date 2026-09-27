@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   private
 -- Function: book_class_slot_for_current
--- Updated:  2026-09-27T01:11:01.886Z
+-- Updated:  2026-09-27T06:51:04.303Z
 
 -- overload
 -- language: plpgsql
@@ -88,6 +88,15 @@ begin
       where r.id = v_role
     ) then
       raise exception 'dance role is required for partner dance'
+        using errcode='23514';
+    end if;
+
+    if not private.dancer_can_use_role_for_style(
+      v_dancer_id,
+      v_slot.style_id,
+      v_role
+    ) then
+      raise exception 'dance role is not enabled for this style'
         using errcode='23514';
     end if;
   else
