@@ -99,7 +99,8 @@ export async function setClassAttending({
 
     if (error) throw error
 
-    const row = data as {
+    const rawRow = Array.isArray(data) ? data[0] : data
+    const row = rawRow as {
       id?: unknown
       status?: unknown
     } | null
