@@ -921,6 +921,13 @@ async function publishInstagram(
   }
 }
 
+function envKeySegment(value: string) {
+  return value
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toUpperCase()
+}
+
 async function publishMake(
   job: ClaimedJob,
   destination: Destination,
@@ -928,9 +935,14 @@ async function publishMake(
   copy: RenderedCopy,
 ): Promise<PublishResult> {
   const settings = record(destination.settings)
+  const destinationWebhook = optionalEnv(
+    `MAKE_${envKeySegment(destination.key)}_WEBHOOK_URL`,
+  )
   const webhookUrl =
     optionalText(settings.webhook_url)
+    ?? destinationWebhook
     ?? optionalEnv('MAKE_SOCIAL_PUBLISHING_WEBHOOK_URL')
+    ?? optionalEnv('MAKE_SOCIAL_WEBHOOK_URL')
 
   if (!webhookUrl) {
     throw new TerminalPublishError(
@@ -952,10 +964,24 @@ async function publishMake(
         destination: 'social_publishing',
         destination_key: destination.key,
         platform: destination.platform,
+        job_id: job.job_id,
+        post_id: context.event_id,
+        variant_id: context.publication_id,
         idempotency_key: `${job.publication_id}:${destination.key}`,
         title: copy.title,
+        source_url: copy.goingUrl ?? copy.notGoingUrl,
         text: copy.plain,
         html: copy.html,
+        media: {
+          mode: optionalText(context.payload.announcement_image_url)
+            ? 'photo'
+            : 'link',
+          image_url: optionalText(context.payload.announcement_image_url),
+        },
+        metadata: {
+          publication_type: context.publication_type,
+          publication_version: context.version,
+        },
         event: {
           ...context.payload,
           balance: context.balance,
