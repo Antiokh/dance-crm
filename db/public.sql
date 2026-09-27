@@ -3,7 +3,7 @@
 -- Schema:   public
 -- Entity:   tables
 -- Mode:     table_bundle
--- Updated:  2026-09-27T01:21:06.852Z
+-- Updated:  2026-09-27T06:11:01.435Z
 
 -- table: bookings
 
@@ -219,6 +219,7 @@ ALTER TABLE public.dance_group ENABLE ROW LEVEL SECURITY;
 CREATE POLICY dance_group_admin_delete ON public.dance_group FOR DELETE TO authenticated USING (private.has_app_role('administrator'::app_role));
 CREATE POLICY dance_group_admin_insert ON public.dance_group FOR INSERT TO authenticated WITH CHECK (private.has_app_role('administrator'::app_role));
 CREATE POLICY dance_group_admin_update ON public.dance_group FOR UPDATE TO authenticated USING (private.has_app_role('administrator'::app_role)) WITH CHECK (private.has_app_role('administrator'::app_role));
+CREATE POLICY dance_group_public_select ON public.dance_group FOR SELECT TO anon USING (active);
 CREATE POLICY dance_group_select ON public.dance_group FOR SELECT TO authenticated USING (private.can_view_group(id));
 
 -- table: dancer
@@ -246,6 +247,10 @@ CREATE TABLE public.dancer (
 );
 CREATE INDEX dancer_primary_role_idx ON public.dancer USING btree (primary_role);
 ALTER TABLE public.dancer ENABLE ROW LEVEL SECURITY;
+CREATE POLICY dancer_public_trainers_select ON public.dancer FOR SELECT TO anon USING ((EXISTS ( SELECT 1
+   FROM (group_trainers gt
+     JOIN dance_group g ON ((g.id = gt.group_id)))
+  WHERE ((gt.trainer_id = dancer.id) AND g.active AND ((gt.starts_on IS NULL) OR (gt.starts_on <= CURRENT_DATE)) AND ((gt.ends_on IS NULL) OR (gt.ends_on >= CURRENT_DATE))))));
 CREATE POLICY dancer_select_directory ON public.dancer FOR SELECT TO authenticated USING (true);
 CREATE POLICY dancer_update_self ON public.dancer FOR UPDATE TO authenticated USING ((auth_user_id = ( SELECT auth.uid() AS uid))) WITH CHECK ((auth_user_id = ( SELECT auth.uid() AS uid)));
 
@@ -472,6 +477,9 @@ ALTER TABLE public.group_trainers ENABLE ROW LEVEL SECURITY;
 CREATE POLICY group_trainers_admin_delete ON public.group_trainers FOR DELETE TO authenticated USING (private.has_app_role('administrator'::app_role));
 CREATE POLICY group_trainers_admin_insert ON public.group_trainers FOR INSERT TO authenticated WITH CHECK (private.has_app_role('administrator'::app_role));
 CREATE POLICY group_trainers_admin_update ON public.group_trainers FOR UPDATE TO authenticated USING (private.has_app_role('administrator'::app_role)) WITH CHECK (private.has_app_role('administrator'::app_role));
+CREATE POLICY group_trainers_public_select ON public.group_trainers FOR SELECT TO anon USING ((EXISTS ( SELECT 1
+   FROM dance_group g
+  WHERE ((g.id = group_trainers.group_id) AND g.active))));
 CREATE POLICY group_trainers_select ON public.group_trainers FOR SELECT TO authenticated USING (private.can_view_group(group_id));
 
 -- table: home_attention_items
@@ -744,4 +752,5 @@ ALTER TABLE public.venues ENABLE ROW LEVEL SECURITY;
 CREATE POLICY venues_admin_delete ON public.venues FOR DELETE TO authenticated USING (private.has_app_role('administrator'::app_role));
 CREATE POLICY venues_admin_insert ON public.venues FOR INSERT TO authenticated WITH CHECK (private.has_app_role('administrator'::app_role));
 CREATE POLICY venues_admin_update ON public.venues FOR UPDATE TO authenticated USING (private.has_app_role('administrator'::app_role)) WITH CHECK (private.has_app_role('administrator'::app_role));
+CREATE POLICY venues_public_select ON public.venues FOR SELECT TO anon USING (active);
 CREATE POLICY venues_select ON public.venues FOR SELECT TO authenticated USING ((active OR private.has_app_role('administrator'::app_role)));
