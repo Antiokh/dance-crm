@@ -54,6 +54,7 @@ export type AdminEvent = {
   event_type: 'party' | 'open_class'
   title: string
   description: string | null
+  announcement_image_url: string | null
   starts_at: string
   ends_at: string | null
   venue_id: string | null
@@ -71,6 +72,7 @@ export type AdminEventTemplate = {
   event_type: 'party' | 'open_class'
   title: string
   description: string | null
+  announcement_image_url: string | null
   duration_minutes: number | null
   venue_id: string | null
   style_id: number | null
@@ -270,11 +272,11 @@ export async function loadAdminCatalog(): Promise<AdminCatalog> {
       .select('group_id, trainer_id, trainer_role, starts_on, ends_on, created_at'),
     supabase
       .from('dance_events')
-      .select('id, event_type, title, description, starts_at, ends_at, venue_id, style_id, published, cancelled_at, leader_going_count, follower_going_count, other_going_count')
+      .select('id, event_type, title, description, announcement_image_url, starts_at, ends_at, venue_id, style_id, published, cancelled_at, leader_going_count, follower_going_count, other_going_count')
       .order('starts_at'),
     supabase
       .from('event_templates')
-      .select('id, name, event_type, title, description, duration_minutes, venue_id, style_id, active')
+      .select('id, name, event_type, title, description, announcement_image_url, duration_minutes, venue_id, style_id, active')
       .order('active', { ascending: false })
       .order('name'),
     supabase
@@ -363,6 +365,7 @@ export async function loadAdminCatalog(): Promise<AdminCatalog> {
     event_type: row.event_type === 'open_class' ? 'open_class' : 'party',
     title: String(row.title),
     description: stringOrNull(row.description),
+    announcement_image_url: stringOrNull(row.announcement_image_url),
     starts_at: String(row.starts_at),
     ends_at: stringOrNull(row.ends_at),
     venue_id: stringOrNull(row.venue_id),
@@ -380,6 +383,7 @@ export async function loadAdminCatalog(): Promise<AdminCatalog> {
     event_type: row.event_type === 'open_class' ? 'open_class' : 'party',
     title: String(row.title),
     description: stringOrNull(row.description),
+    announcement_image_url: stringOrNull(row.announcement_image_url),
     duration_minutes: numberOrNull(row.duration_minutes),
     venue_id: stringOrNull(row.venue_id),
     style_id: numberOrNull(row.style_id),
@@ -587,6 +591,7 @@ export async function saveAdminEvent(input: AdminEventInput) {
     event_type: input.event_type,
     title: input.title.trim(),
     description: input.description?.trim() || null,
+    announcement_image_url: input.announcement_image_url?.trim() || null,
     starts_at: localInputToIso(input.starts_local),
     ends_at: localInputToIso(input.ends_local),
     venue_id: input.venue_id,
@@ -627,6 +632,7 @@ export async function saveAdminEventTemplate(input: AdminEventTemplateInput) {
     event_type: input.event_type,
     title: input.title.trim(),
     description: input.description?.trim() || null,
+    announcement_image_url: input.announcement_image_url?.trim() || null,
     duration_minutes: input.duration_minutes,
     venue_id: input.venue_id,
     style_id: input.style_id,
