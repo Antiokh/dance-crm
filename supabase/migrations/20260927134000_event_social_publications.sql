@@ -724,6 +724,7 @@ begin
   where c.id = p_command_id
     and c.status = 'leased'
     and c.lease_owner = p_worker
+    and c.lease_expires_at > now()
   for update;
 
   if not found then
@@ -1026,34 +1027,46 @@ declare
   v_limit integer := least(greatest(coalesce(p_limit, 8), 1), 32);
   v_lease_seconds integer :=
     least(greatest(coalesce(p_lease_seconds, 90), 30), 600);
+  v_reaped_publication uuid;
 begin
   if p_worker is null or btrim(p_worker) = '' then
     raise exception 'worker id required' using errcode = '22023';
   end if;
 
-  update social.delivery_jobs j
-  set status = case
-        when j.publish_started_at is not null
-          and coalesce(j.provider_progress->>'safe_retry', 'false') <> 'true'
-          then 'dead'
-        when j.attempt_count >= j.max_attempts
-          then 'dead'
-        else 'retry'
-      end,
-      available_at = case
-        when j.attempt_count >= j.max_attempts then j.available_at
-        else greatest(j.available_at, v_now + interval '30 seconds')
-      end,
-      last_error = case
-        when j.publish_started_at is not null
-          and coalesce(j.provider_progress->>'safe_retry', 'false') <> 'true'
-          then 'Lease expired after provider publish started; automatic retry blocked to prevent duplicate publication'
-        else 'Worker lease expired'
-      end,
-      lease_owner = null,
-      lease_expires_at = null
-  where j.status = 'leased'
-    and j.lease_expires_at <= v_now;
+  for v_reaped_publication in
+    with reaped as (
+      update social.delivery_jobs j
+      set status = case
+            when j.publish_started_at is not null
+              and coalesce(j.provider_progress->>'safe_retry', 'false') <> 'true'
+              then 'dead'
+            when j.attempt_count >= j.max_attempts
+              then 'dead'
+            else 'retry'
+          end,
+          available_at = case
+            when j.attempt_count >= j.max_attempts then j.available_at
+            else greatest(j.available_at, v_now + interval '30 seconds')
+          end,
+          last_error = case
+            when j.publish_started_at is not null
+              and coalesce(j.provider_progress->>'safe_retry', 'false') <> 'true'
+              then 'Lease expired after provider publish started; automatic retry blocked to prevent duplicate publication'
+            else 'Worker lease expired'
+          end,
+          lease_owner = null,
+          lease_expires_at = null
+      where j.status = 'leased'
+        and j.lease_expires_at <= v_now
+      returning j.publication_id
+    )
+    select distinct r.publication_id
+    from reaped r
+  loop
+    perform private.refresh_event_social_publication_status(
+      v_reaped_publication
+    );
+  end loop;
 
   return query
   with eligible as (
@@ -1188,6 +1201,7 @@ begin
   where j.id = p_job_id
     and j.status = 'leased'
     and j.lease_owner = p_worker
+    and j.lease_expires_at > now()
   returning j.publication_id, j.destination_key
   into v_publication_id, v_destination_key;
 
@@ -1254,6 +1268,7 @@ begin
   where j.id = p_job_id
     and j.status = 'leased'
     and j.lease_owner = p_worker
+    and j.lease_expires_at > now()
   for update;
 
   if not found then
