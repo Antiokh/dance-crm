@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - feat/event-announcements-rsvp
 
 jobs:
   check:
@@ -14,9 +15,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install --no-audit --no-fund\n      - run: node scripts/check-social-boundary.mjs
+      - run: npm install --no-audit --no-fund
+      - run: node scripts/check-social-boundary.mjs
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
       - run: deno check supabase/functions/event-weather/index.ts
-      - run: deno check supabase/functions/social-command-worker/index.ts\n      - run: deno check supabase/functions/social-publish-dispatch/index.ts
+      - run: deno check supabase/functions/social-command-worker/index.ts
+      - run: deno check supabase/functions/social-publish-dispatch/index.ts
