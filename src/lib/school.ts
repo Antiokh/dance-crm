@@ -196,10 +196,10 @@ export async function loadSchoolCatalog(): Promise<SchoolCatalog> {
       levelSystemCode: level?.systemCode ?? null,
       isSportAchievement: level?.isSportAchievement === true,
       maxCapacity: typeof row.max_capacity === 'number' ? row.max_capacity : null,
-    enrollmentStatus:
-      typeof row.enrollment_status === 'string'
-        ? row.enrollment_status
-        : 'closed',
+      enrollmentStatus:
+        typeof row.enrollment_status === 'string'
+          ? row.enrollment_status
+          : 'closed',
       styleTitle: styleMap.get(Number(row.style_id)) ?? 'Стиль',
     }
   })
