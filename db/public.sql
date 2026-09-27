@@ -3,7 +3,7 @@
 -- Schema:   public
 -- Entity:   tables
 -- Mode:     table_bundle
--- Updated:  2026-09-27T01:01:03.893Z
+-- Updated:  2026-09-27T01:12:03.788Z
 
 -- table: bookings
 
@@ -534,6 +534,36 @@ CREATE TABLE public.l_dance_style (
 );
 ALTER TABLE public.l_dance_style ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Enable read access for all users" ON public.l_dance_style FOR SELECT TO PUBLIC USING (true);
+
+-- table: overbook_requests
+
+CREATE TABLE public.overbook_requests (
+  id uuid NOT NULL DEFAULT extensions.gen_random_uuid(),
+  booking_id uuid NOT NULL,
+  slot_id uuid NOT NULL,
+  dancer_id uuid NOT NULL,
+  status overbook_request_status NOT NULL DEFAULT 'pending'::overbook_request_status,
+  requested_at timestamp with time zone NOT NULL DEFAULT now(),
+  reviewed_at timestamp with time zone,
+  reviewed_by uuid,
+  review_note text,
+  notification_queued_at timestamp with time zone,
+  notification_sent_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT overbook_requests_booking_id_fkey FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+  CONSTRAINT overbook_requests_booking_id_key UNIQUE (booking_id),
+  CONSTRAINT overbook_requests_dancer_id_fkey FOREIGN KEY (dancer_id) REFERENCES dancer(id) ON DELETE CASCADE,
+  CONSTRAINT overbook_requests_pkey PRIMARY KEY (id),
+  CONSTRAINT overbook_requests_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES dancer(id) ON DELETE SET NULL,
+  CONSTRAINT overbook_requests_slot_id_fkey FOREIGN KEY (slot_id) REFERENCES class_slots(id) ON DELETE CASCADE,
+  CONSTRAINT overbook_review_shape CHECK (status = 'pending'::overbook_request_status AND reviewed_at IS NULL AND reviewed_by IS NULL OR status <> 'pending'::overbook_request_status)
+);
+CREATE INDEX overbook_requests_slot_status_idx ON public.overbook_requests USING btree (slot_id, status, requested_at);
+CREATE INDEX overbook_requests_dancer_idx ON public.overbook_requests USING btree (dancer_id, requested_at DESC);
+CREATE TRIGGER overbook_requests_touch_updated_at BEFORE UPDATE ON public.overbook_requests FOR EACH ROW EXECUTE FUNCTION private.touch_updated_at();
+ALTER TABLE public.overbook_requests ENABLE ROW LEVEL SECURITY;
+CREATE POLICY overbook_requests_select ON public.overbook_requests FOR SELECT TO authenticated USING (((dancer_id = private.current_dancer_id()) OR private.can_operate_slot(slot_id)));
 
 -- table: student_subscription_groups
 
