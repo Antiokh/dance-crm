@@ -33,6 +33,7 @@ Schema export and generated DB commits must not be treated as migration source.
 ## Feature notes
 
 - Event templates, weather, social publication and RSVP delivery: `docs/EVENT_ANNOUNCEMENTS.md`.
+- Reusable private social-publishing module contract: `modules/social-publishing/README.md`.
 
 ## Legacy baseline
 
