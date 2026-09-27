@@ -70,17 +70,54 @@ export async function loadQuickAttendState(): Promise<QuickAttendState> {
   return { eventIds, bookings }
 }
 
+export type QuickAttendEventResult = {
+  attending: boolean
+  roleBalance: {
+    leader: number
+    follower: number
+    other: number
+  }
+}
+
 export async function setEventAttending(
   eventId: string,
   attending: boolean,
-): Promise<boolean> {
+): Promise<QuickAttendEventResult> {
   const { data, error } = await supabase.rpc('set_my_event_attending', {
     p_event_id: eventId,
     p_attending: attending,
   })
 
   if (error) throw error
-  return data === true
+
+  const { data: rsvpData, error: rsvpError } = await supabase.rpc(
+    'get_my_event_rsvp',
+    { p_event_id: eventId },
+  )
+  if (rsvpError) throw rsvpError
+
+  const row =
+    rsvpData && typeof rsvpData === 'object' && !Array.isArray(rsvpData)
+      ? rsvpData as Record<string, unknown>
+      : {}
+
+  return {
+    attending: data === true,
+    roleBalance: {
+      leader:
+        typeof row.leader_going_count === 'number'
+          ? row.leader_going_count
+          : 0,
+      follower:
+        typeof row.follower_going_count === 'number'
+          ? row.follower_going_count
+          : 0,
+      other:
+        typeof row.other_going_count === 'number'
+          ? row.other_going_count
+          : 0,
+    },
+  }
 }
 
 export async function setClassAttending({
