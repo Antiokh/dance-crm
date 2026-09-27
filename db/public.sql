@@ -3,7 +3,7 @@
 -- Schema:   public
 -- Entity:   tables
 -- Mode:     table_bundle
--- Updated:  2026-09-26T22:01:55.349Z
+-- Updated:  2026-09-27T00:21:02.884Z
 
 -- table: bookings
 
@@ -152,6 +152,39 @@ CREATE POLICY class_slots_admin_delete ON public.class_slots FOR DELETE TO authe
 CREATE POLICY class_slots_admin_insert ON public.class_slots FOR INSERT TO authenticated WITH CHECK (private.has_app_role('administrator'::app_role));
 CREATE POLICY class_slots_admin_update ON public.class_slots FOR UPDATE TO authenticated USING (private.has_app_role('administrator'::app_role)) WITH CHECK (private.has_app_role('administrator'::app_role));
 CREATE POLICY class_slots_select ON public.class_slots FOR SELECT TO authenticated USING ((private.can_view_class(group_id, visibility) OR private.has_booking_for_slot(id)));
+
+-- table: dance_events
+
+CREATE TABLE public.dance_events (
+  id uuid NOT NULL DEFAULT extensions.gen_random_uuid(),
+  event_type dance_event_type NOT NULL,
+  title text NOT NULL,
+  description text,
+  starts_at timestamp with time zone NOT NULL,
+  ends_at timestamp with time zone,
+  venue_id uuid,
+  style_id smallint,
+  published boolean NOT NULL DEFAULT false,
+  cancelled_at timestamp with time zone,
+  created_by uuid DEFAULT private.current_dancer_id(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT dance_events_created_by_fkey FOREIGN KEY (created_by) REFERENCES dancer(id) ON DELETE SET NULL,
+  CONSTRAINT dance_events_pkey PRIMARY KEY (id),
+  CONSTRAINT dance_events_style_id_fkey FOREIGN KEY (style_id) REFERENCES l_dance_style(id) ON DELETE SET NULL,
+  CONSTRAINT dance_events_time_order CHECK (ends_at IS NULL OR ends_at > starts_at),
+  CONSTRAINT dance_events_title_check CHECK (length(btrim(title)) > 0),
+  CONSTRAINT dance_events_venue_id_fkey FOREIGN KEY (venue_id) REFERENCES venues(id) ON DELETE SET NULL
+);
+CREATE INDEX dance_events_upcoming_idx ON public.dance_events USING btree (starts_at) WHERE (published AND (cancelled_at IS NULL));
+CREATE INDEX dance_events_venue_idx ON public.dance_events USING btree (venue_id);
+CREATE INDEX dance_events_style_idx ON public.dance_events USING btree (style_id);
+CREATE TRIGGER dance_events_touch_updated_at BEFORE UPDATE ON public.dance_events FOR EACH ROW EXECUTE FUNCTION private.touch_updated_at();
+ALTER TABLE public.dance_events ENABLE ROW LEVEL SECURITY;
+CREATE POLICY dance_events_admin_delete ON public.dance_events FOR DELETE TO authenticated USING (private.has_app_role('administrator'::app_role));
+CREATE POLICY dance_events_admin_insert ON public.dance_events FOR INSERT TO authenticated WITH CHECK (private.has_app_role('administrator'::app_role));
+CREATE POLICY dance_events_admin_update ON public.dance_events FOR UPDATE TO authenticated USING (private.has_app_role('administrator'::app_role)) WITH CHECK (private.has_app_role('administrator'::app_role));
+CREATE POLICY dance_events_select ON public.dance_events FOR SELECT TO authenticated USING (((published AND (cancelled_at IS NULL)) OR private.has_app_role('administrator'::app_role)));
 
 -- table: dance_group
 
