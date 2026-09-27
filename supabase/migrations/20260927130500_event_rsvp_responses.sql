@@ -79,6 +79,11 @@ begin
     return;
   end if;
 
+  perform 1
+  from public.dance_events e
+  where e.id = p_event_id
+  for update;
+
   select
     count(*) filter (where ea.role_id = 1)::integer,
     count(*) filter (where ea.role_id = 2)::integer,
