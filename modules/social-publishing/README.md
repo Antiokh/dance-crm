@@ -21,6 +21,8 @@ consumer/domain
 
 The consumer owns domain state. The social module never owns events, bookings, dancers, or attendance.
 
+The executable SQL is physically split as well: `20260927134000_social_publishing_core.sql` contains no Dance CRM table references; `20260927134500_event_social_adapter.sql` is the Dance consumer adapter.
+
 The reusable private state references a source only by:
 
 - `source_type`;
