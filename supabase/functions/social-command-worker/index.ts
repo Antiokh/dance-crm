@@ -53,7 +53,7 @@ async function debug(message: string, payload: unknown) {
 
 async function expectedSecret() {
   const { data, error } = await supabaseService()
-    .rpc('social_get_dispatch_secret')
+    .rpc('social_get_worker_secret')
 
   if (error) throw error
   return typeof data === 'string' ? data : ''
@@ -120,7 +120,7 @@ Deno.serve(async (request) => {
 
   try {
     const provided =
-      request.headers.get('x-dance-social-secret')?.trim() ?? ''
+      request.headers.get('x-social-worker-secret')?.trim() ?? ''
     const expected = await expectedSecret()
 
     if (!provided || !expected || !safeEqual(provided, expected)) {
