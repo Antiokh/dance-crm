@@ -6,6 +6,7 @@ import {
   Section,
   Spinner,
 } from '@telegram-apps/telegram-ui'
+import TelegramSwitch from './components/TelegramSwitch'
 import {
   authenticateTelegram,
   type AuthState,
@@ -21,6 +22,10 @@ import {
   type GroupClass,
   type HomeStyle,
 } from './lib/homeFeed'
+import {
+  setClassAttending,
+  setEventAttending,
+} from './lib/quickAttend'
 import { getTelegramUser, setTelegramVerticalSwipesEnabled } from './lib/telegram'
 import { getNativeTelegramUser, getTmaDiagnostics } from './lib/tma'
 
@@ -45,6 +50,12 @@ type FeedState =
 type TodayItem =
   | { kind: 'event'; startsAt: string; event: DanceEvent }
   | { kind: 'class'; startsAt: string; item: GroupClass }
+
+type ClassAttendState = {
+  attending: boolean
+  bookingId: string | null
+  status: 'booked' | 'waitlisted' | null
+}
 
 function displayName(dancer: DancerSummary) {
   if (dancer.custom_name?.trim()) return dancer.custom_name.trim()
@@ -157,16 +168,44 @@ function classSubtitle(item: GroupClass) {
   ].filter(Boolean).join(' · ')
 }
 
-function classDescription(item: GroupClass) {
+function classDescription(
+  item: GroupClass,
+  status: 'booked' | 'waitlisted' | null = item.booking_status,
+) {
   return [
     item.group_level,
     item.venue?.name,
-    item.booking_status === 'booked'
+    status === 'booked'
       ? 'Записан'
-      : item.booking_status === 'waitlisted'
+      : status === 'waitlisted'
         ? 'Лист ожидания'
         : null,
   ].filter(Boolean).join(' · ') || undefined
+}
+
+function QuickAttendToggle({
+  checked,
+  pending,
+  onChange,
+}: {
+  checked: boolean
+  pending: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <span
+      className="quick-attend-control"
+      onClick={(event) => event.stopPropagation()}
+    >
+      <TelegramSwitch
+        checked={checked}
+        disabled={pending}
+        onChange={(event) => onChange(event.target.checked)}
+        aria-label={checked ? 'Я иду' : 'Отметиться: я иду'}
+      />
+      <span className="quick-attend-label">Я иду</span>
+    </span>
+  )
 }
 
 function DateBadge({ value }: { value: string }) {
@@ -190,6 +229,10 @@ function TimeBadge({ value }: { value: string }) {
 
 function DancerHome({ state }: { state: FeedState }) {
   const [eventsExpanded, setEventsExpanded] = useState(false)
+  const [eventOverrides, setEventOverrides] = useState<Record<string, boolean>>({})
+  const [classOverrides, setClassOverrides] = useState<Record<string, ClassAttendState>>({})
+  const [pendingActions, setPendingActions] = useState<Record<string, boolean>>({})
+  const [actionError, setActionError] = useState<string | null>(null)
 
   if (state.status === 'loading') {
     return (
@@ -231,27 +274,117 @@ function DancerHome({ state }: { state: FeedState }) {
     : state.data.events.slice(0, 2)
   const hiddenEventCount = Math.max(0, state.data.events.length - 2)
 
+  const eventAttending = (event: DanceEvent) =>
+    eventOverrides[event.id] ?? event.attending
+
+  const classAttendState = (item: GroupClass): ClassAttendState =>
+    classOverrides[item.id] ?? {
+      attending: item.booking_status !== null,
+      bookingId: item.booking_id,
+      status: item.booking_status,
+    }
+
+  const toggleEvent = async (event: DanceEvent, attending: boolean) => {
+    const key = `event:${event.id}`
+    const previous = eventAttending(event)
+
+    setActionError(null)
+    setEventOverrides((current) => ({ ...current, [event.id]: attending }))
+    setPendingActions((current) => ({ ...current, [key]: true }))
+
+    try {
+      const actual = await setEventAttending(event.id, attending)
+      setEventOverrides((current) => ({ ...current, [event.id]: actual }))
+    } catch (error) {
+      setEventOverrides((current) => ({ ...current, [event.id]: previous }))
+      setActionError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setPendingActions((current) => ({ ...current, [key]: false }))
+    }
+  }
+
+  const toggleClass = async (item: GroupClass, attending: boolean) => {
+    const key = `class:${item.id}`
+    const previous = classAttendState(item)
+
+    setActionError(null)
+    setClassOverrides((current) => ({
+      ...current,
+      [item.id]: {
+        attending,
+        bookingId: previous.bookingId,
+        status: attending ? previous.status : null,
+      },
+    }))
+    setPendingActions((current) => ({ ...current, [key]: true }))
+
+    try {
+      const actual = await setClassAttending({
+        slotId: item.id,
+        bookingId: previous.bookingId,
+        attending,
+      })
+
+      setClassOverrides((current) => ({
+        ...current,
+        [item.id]: {
+          attending: actual.attending,
+          bookingId: actual.bookingId,
+          status: actual.status,
+        },
+      }))
+    } catch (error) {
+      setClassOverrides((current) => ({ ...current, [item.id]: previous }))
+      setActionError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setPendingActions((current) => ({ ...current, [key]: false }))
+    }
+  }
+
   return (
     <>
+      {actionError && (
+        <div className="tgui-error quick-attend-error">
+          {actionError}
+        </div>
+      )}
+
       {state.data.attention.length > 0 && (
         <Section className="tgui-section dancer-home-attention">
           <List className="tgui-trip-list">
-            {state.data.attention.map((item) => (
-              <Cell
-                key={item.id}
-                className="tgui-trip-cell"
-                before={<span className="dancer-home-pin" aria-hidden="true">📌</span>}
-                hint={item.event ? eventTypeLabel(item.event.event_type) : 'Важно'}
-                subtitle={
-                  item.event
-                    ? `${dateCaption(item.event.starts_at)} · ${timeRange(item.event.starts_at, item.event.ends_at)}`
-                    : undefined
-                }
-                description={item.body ?? item.event?.description ?? undefined}
-              >
-                {item.title}
-              </Cell>
-            ))}
+            {state.data.attention.map((item) => {
+              const event = item.event
+              const attending = event ? eventAttending(event) : false
+              const pending = event
+                ? Boolean(pendingActions[`event:${event.id}`])
+                : false
+
+              return (
+                <Cell
+                  key={item.id}
+                  className="tgui-trip-cell"
+                  before={<span className="dancer-home-pin" aria-hidden="true">📌</span>}
+                  after={event ? (
+                    <QuickAttendToggle
+                      checked={attending}
+                      pending={pending}
+                      onChange={(checked) => {
+                        void toggleEvent(event, checked)
+                      }}
+                    />
+                  ) : undefined}
+                  hint={event ? eventTypeLabel(event.event_type) : 'Важно'}
+                  subtitle={
+                    event
+                      ? `${dateCaption(event.starts_at)} · ${timeRange(event.starts_at, event.ends_at)}`
+                      : undefined
+                  }
+                  description={item.body ?? event?.description ?? undefined}
+                >
+                  {item.title}
+                </Cell>
+              )
+            })}
           </List>
         </Section>
       )}
@@ -259,31 +392,63 @@ function DancerHome({ state }: { state: FeedState }) {
       <Section className="tgui-section" header="Сегодня">
         <List className="tgui-trip-list">
           {todayItems.length > 0 ? (
-            todayItems.map((today) => (
-              today.kind === 'event' ? (
-                <Cell
-                  key={`event-${today.event.id}`}
-                  className="tgui-trip-cell"
-                  before={<TimeBadge value={today.event.starts_at} />}
-                  hint={eventTypeLabel(today.event.event_type)}
-                  subtitle={today.event.venue?.name ?? undefined}
-                  description={eventDescription(today.event)}
-                >
-                  {today.event.title}
-                </Cell>
-              ) : (
+            todayItems.map((today) => {
+              if (today.kind === 'event') {
+                const attending = eventAttending(today.event)
+                const pending = Boolean(
+                  pendingActions[`event:${today.event.id}`],
+                )
+
+                return (
+                  <Cell
+                    key={`event-${today.event.id}`}
+                    className="tgui-trip-cell"
+                    before={<TimeBadge value={today.event.starts_at} />}
+                    after={
+                      <QuickAttendToggle
+                        checked={attending}
+                        pending={pending}
+                        onChange={(checked) => {
+                          void toggleEvent(today.event, checked)
+                        }}
+                      />
+                    }
+                    hint={eventTypeLabel(today.event.event_type)}
+                    subtitle={today.event.venue?.name ?? undefined}
+                    description={eventDescription(today.event)}
+                  >
+                    {today.event.title}
+                  </Cell>
+                )
+              }
+
+              const attend = classAttendState(today.item)
+              const pending = Boolean(
+                pendingActions[`class:${today.item.id}`],
+              )
+
+              return (
                 <Cell
                   key={`class-${today.item.id}`}
                   className="tgui-trip-cell"
                   before={<TimeBadge value={today.item.starts_at} />}
+                  after={
+                    <QuickAttendToggle
+                      checked={attend.attending}
+                      pending={pending}
+                      onChange={(checked) => {
+                        void toggleClass(today.item, checked)
+                      }}
+                    />
+                  }
                   hint="Занятие"
                   subtitle={styleTitle(today.item.style) ?? undefined}
-                  description={classDescription(today.item)}
+                  description={classDescription(today.item, attend.status)}
                 >
                   {today.item.group_title}
                 </Cell>
               )
-            ))
+            })
           ) : (
             <Cell subtitle="На сегодня событий и занятий нет.">
               Свободный день
@@ -295,18 +460,34 @@ function DancerHome({ state }: { state: FeedState }) {
       <Section className="tgui-section" header="Ближайшие события">
         <List className="tgui-trip-list">
           {visibleEvents.length > 0 ? (
-            visibleEvents.map((event) => (
-              <Cell
-                key={event.id}
-                className="tgui-trip-cell"
-                before={<DateBadge value={event.starts_at} />}
-                hint={eventTypeLabel(event.event_type)}
-                subtitle={eventSubtitle(event)}
-                description={eventDescription(event)}
-              >
-                {event.title}
-              </Cell>
-            ))
+            visibleEvents.map((event) => {
+              const attending = eventAttending(event)
+              const pending = Boolean(
+                pendingActions[`event:${event.id}`],
+              )
+
+              return (
+                <Cell
+                  key={event.id}
+                  className="tgui-trip-cell"
+                  before={<DateBadge value={event.starts_at} />}
+                  after={
+                    <QuickAttendToggle
+                      checked={attending}
+                      pending={pending}
+                      onChange={(checked) => {
+                        void toggleEvent(event, checked)
+                      }}
+                    />
+                  }
+                  hint={eventTypeLabel(event.event_type)}
+                  subtitle={eventSubtitle(event)}
+                  description={eventDescription(event)}
+                >
+                  {event.title}
+                </Cell>
+              )
+            })
           ) : (
             <Cell subtitle="Здесь появятся вечеринки и опены.">
               Событий пока нет
@@ -331,18 +512,34 @@ function DancerHome({ state }: { state: FeedState }) {
       <Section className="tgui-section" header="Ближайшие занятия">
         <List className="tgui-trip-list">
           {state.data.classes.length > 0 ? (
-            state.data.classes.map((item) => (
-              <Cell
-                key={item.id}
-                className="tgui-trip-cell"
-                before={<DateBadge value={item.starts_at} />}
-                hint="Занятие"
-                subtitle={classSubtitle(item)}
-                description={classDescription(item)}
-              >
-                {item.group_title}
-              </Cell>
-            ))
+            state.data.classes.map((item) => {
+              const attend = classAttendState(item)
+              const pending = Boolean(
+                pendingActions[`class:${item.id}`],
+              )
+
+              return (
+                <Cell
+                  key={item.id}
+                  className="tgui-trip-cell"
+                  before={<DateBadge value={item.starts_at} />}
+                  after={
+                    <QuickAttendToggle
+                      checked={attend.attending}
+                      pending={pending}
+                      onChange={(checked) => {
+                        void toggleClass(item, checked)
+                      }}
+                    />
+                  }
+                  hint="Занятие"
+                  subtitle={classSubtitle(item)}
+                  description={classDescription(item, attend.status)}
+                >
+                  {item.group_title}
+                </Cell>
+              )
+            })
           ) : (
             <Cell subtitle="Появятся после добавления в группу и публикации расписания.">
               Занятий пока нет

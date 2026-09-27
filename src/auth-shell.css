@@ -85,3 +85,27 @@
 .dancer-home-attention {
   margin-top: 0;
 }
+
+
+.quick-attend-control {
+  display: inline-flex;
+  min-width: 52px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.quick-attend-label {
+  color: var(
+    --tg-theme-subtitle-text-color,
+    var(--tg-theme-hint-color, #999)
+  );
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.quick-attend-error {
+  margin-top: 0;
+}

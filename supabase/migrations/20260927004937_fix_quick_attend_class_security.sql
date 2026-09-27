@@ -1,0 +1,74 @@
+-- Historical migration preserved to match the production migration ledger.
+-- This SECURITY DEFINER wrapper was immediately determined to be unnecessary
+-- and is removed by 20260927005041_remove_unneeded_quick_attend_definers.sql.
+-- Do not copy this pattern for new client actions.
+
+create or replace function public.set_my_class_attending(
+  p_slot_id uuid,
+  p_attending boolean
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_dancer_id uuid := private.current_dancer_id();
+  v_booking public.bookings%rowtype;
+begin
+  if v_dancer_id is null then
+    raise exception 'dancer profile not found' using errcode='P0002';
+  end if;
+
+  if p_attending is null then
+    raise exception 'attending flag is required' using errcode='22023';
+  end if;
+
+  select *
+  into v_booking
+  from public.bookings b
+  where b.slot_id = p_slot_id
+    and b.dancer_id = v_dancer_id
+  for update;
+
+  if p_attending then
+    if v_booking.id is not null
+      and v_booking.status <> 'cancelled'::public.booking_status
+    then
+      return jsonb_build_object(
+        'attending', true,
+        'booking_id', v_booking.id,
+        'status', v_booking.status
+      );
+    end if;
+
+    select *
+    into v_booking
+    from public.book_class_slot(p_slot_id, null::smallint);
+
+    return jsonb_build_object(
+      'attending', true,
+      'booking_id', v_booking.id,
+      'status', v_booking.status
+    );
+  end if;
+
+  if v_booking.id is not null
+    and v_booking.status <> 'cancelled'::public.booking_status
+  then
+    select *
+    into v_booking
+    from public.cancel_my_booking(v_booking.id);
+  end if;
+
+  return jsonb_build_object(
+    'attending', false,
+    'booking_id', case when v_booking.id is null then null else v_booking.id end,
+    'status', null
+  );
+end;
+$function$;
+
+revoke all on function public.set_my_class_attending(uuid, boolean) from public;
+revoke all on function public.set_my_class_attending(uuid, boolean) from anon;
+grant execute on function public.set_my_class_attending(uuid, boolean) to authenticated;

@@ -1,3 +1,4 @@
+import { loadQuickAttendState } from './quickAttend'
 import { supabase } from './supabase'
 
 export type HomeVenue = {
@@ -24,6 +25,7 @@ export type DanceEvent = {
   ends_at: string | null
   venue: HomeVenue | null
   style: HomeStyle | null
+  attending: boolean
 }
 
 export type GroupClass = {
@@ -37,6 +39,7 @@ export type GroupClass = {
   style: HomeStyle
   venue: HomeVenue | null
   booking_status: 'booked' | 'waitlisted' | null
+  booking_id: string | null
 }
 
 export type AttentionItem = {
@@ -115,6 +118,7 @@ function parseEvent(value: unknown): DanceEvent | null {
     ends_at: nullableString(source.ends_at),
     venue: venue(source.venue),
     style: style(source.style),
+    attending: source.attending === true,
   }
 }
 
@@ -155,6 +159,7 @@ function parseClass(value: unknown): GroupClass | null {
     style: danceStyle,
     venue: venue(source.venue),
     booking_status: bookingStatus,
+    booking_id: typeof source.booking_id === 'string' ? source.booking_id : null,
   }
 }
 
@@ -188,21 +193,47 @@ function parseList<T>(
 }
 
 export async function loadDancerHomeFeed(): Promise<DancerHomeFeed> {
-  const { data, error } = await supabase.rpc('get_my_dancer_home_feed', {
-    p_event_limit: 20,
-    p_class_limit: 20,
-  })
+  const [feedResult, attendState] = await Promise.all([
+    supabase.rpc('get_my_dancer_home_feed', {
+      p_event_limit: 20,
+      p_class_limit: 20,
+    }),
+    loadQuickAttendState(),
+  ])
 
-  if (error) throw error
+  if (feedResult.error) throw feedResult.error
 
-  const source = object(data)
+  const source = object(feedResult.data)
   if (!source) throw new Error('Dancer home feed is unavailable')
 
+  const eventIds = new Set(attendState.eventIds)
+  const bookings = new Map(
+    attendState.bookings.map((booking) => [booking.slot_id, booking]),
+  )
+
+  const attachEventState = (event: DanceEvent): DanceEvent => ({
+    ...event,
+    attending: eventIds.has(event.id),
+  })
+
+  const attachClassState = (item: GroupClass): GroupClass => {
+    const booking = bookings.get(item.id)
+
+    return {
+      ...item,
+      booking_id: booking?.id ?? null,
+      booking_status: booking?.status ?? null,
+    }
+  }
+
   return {
-    attention: parseList(source.attention, parseAttention),
-    today_events: parseList(source.today_events, parseEvent),
-    today_classes: parseList(source.today_classes, parseClass),
-    events: parseList(source.events, parseEvent),
-    classes: parseList(source.classes, parseClass),
+    attention: parseList(source.attention, parseAttention).map((item) => ({
+      ...item,
+      event: item.event ? attachEventState(item.event) : null,
+    })),
+    today_events: parseList(source.today_events, parseEvent).map(attachEventState),
+    today_classes: parseList(source.today_classes, parseClass).map(attachClassState),
+    events: parseList(source.events, parseEvent).map(attachEventState),
+    classes: parseList(source.classes, parseClass).map(attachClassState),
   }
 }
