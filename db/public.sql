@@ -3,7 +3,7 @@
 -- Schema:   public
 -- Entity:   tables
 -- Mode:     table_bundle
--- Updated:  2026-09-27T06:52:03.000Z
+-- Updated:  2026-09-27T07:22:01.609Z
 
 -- table: bookings
 
@@ -270,141 +270,32 @@ CREATE INDEX dancer_app_roles_granted_by_idx ON public.dancer_app_roles USING bt
 ALTER TABLE public.dancer_app_roles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY dancer_app_roles_select ON public.dancer_app_roles FOR SELECT TO authenticated USING (((dancer_id = private.current_dancer_id()) OR private.has_app_role('administrator'::app_role)));
 
--- table: dancer_bachata
+-- table: dancer_style_profile
 
-CREATE TABLE public.dancer_bachata (
-  id uuid NOT NULL,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  main_role smallint,
-  CONSTRAINT dancer_bachata_id_fkey FOREIGN KEY (id) REFERENCES dancer(id) ON UPDATE CASCADE ON DELETE CASCADE,
-  CONSTRAINT dancer_bachata_main_role_fkey FOREIGN KEY (main_role) REFERENCES l_dance_role(id),
-  CONSTRAINT dancer_bachata_pkey PRIMARY KEY (id)
-);
-CREATE INDEX dancer_bachata_main_role_idx ON public.dancer_bachata USING btree (main_role);
-ALTER TABLE public.dancer_bachata ENABLE ROW LEVEL SECURITY;
-CREATE POLICY dancer_bachata_delete_self ON public.dancer_bachata FOR DELETE TO authenticated USING ((id = private.current_dancer_id()));
-CREATE POLICY dancer_bachata_insert_self ON public.dancer_bachata FOR INSERT TO authenticated WITH CHECK ((id = private.current_dancer_id()));
-CREATE POLICY dancer_bachata_select_self ON public.dancer_bachata FOR SELECT TO authenticated USING ((id = private.current_dancer_id()));
-CREATE POLICY dancer_bachata_update_self ON public.dancer_bachata FOR UPDATE TO authenticated USING ((id = private.current_dancer_id())) WITH CHECK ((id = private.current_dancer_id()));
-
--- table: dancer_discofox
-
-CREATE TABLE public.dancer_discofox (
-  id uuid NOT NULL,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  main_role smallint,
-  is_trainer boolean,
-  CONSTRAINT dancer_discofox_id_fkey FOREIGN KEY (id) REFERENCES dancer(id) ON UPDATE CASCADE ON DELETE CASCADE,
-  CONSTRAINT dancer_discofox_main_role_fkey FOREIGN KEY (main_role) REFERENCES l_dance_role(id),
-  CONSTRAINT dancer_discofox_pkey PRIMARY KEY (id)
-);
-CREATE INDEX dancer_discofox_main_role_idx ON public.dancer_discofox USING btree (main_role);
-ALTER TABLE public.dancer_discofox ENABLE ROW LEVEL SECURITY;
-CREATE POLICY dancer_discofox_delete_self ON public.dancer_discofox FOR DELETE TO authenticated USING ((id = private.current_dancer_id()));
-CREATE POLICY dancer_discofox_insert_self ON public.dancer_discofox FOR INSERT TO authenticated WITH CHECK ((id = private.current_dancer_id()));
-CREATE POLICY dancer_discofox_select_self ON public.dancer_discofox FOR SELECT TO authenticated USING ((id = private.current_dancer_id()));
-CREATE POLICY dancer_discofox_update_self ON public.dancer_discofox FOR UPDATE TO authenticated USING ((id = private.current_dancer_id())) WITH CHECK ((id = private.current_dancer_id()));
-
--- table: dancer_hustle
-
-CREATE TABLE public.dancer_hustle (
-  id uuid NOT NULL,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  main_role smallint,
-  CONSTRAINT dancer_hustle_main_role_fkey FOREIGN KEY (main_role) REFERENCES l_dance_role(id),
-  CONSTRAINT hustle_dancer_id_fkey FOREIGN KEY (id) REFERENCES dancer(id) ON UPDATE CASCADE ON DELETE CASCADE,
-  CONSTRAINT hustle_dancer_pkey PRIMARY KEY (id)
-);
-CREATE INDEX dancer_hustle_main_role_idx ON public.dancer_hustle USING btree (main_role);
-ALTER TABLE public.dancer_hustle ENABLE ROW LEVEL SECURITY;
-CREATE POLICY dancer_hustle_delete_self ON public.dancer_hustle FOR DELETE TO authenticated USING ((id = private.current_dancer_id()));
-CREATE POLICY dancer_hustle_insert_self ON public.dancer_hustle FOR INSERT TO authenticated WITH CHECK ((id = private.current_dancer_id()));
-CREATE POLICY dancer_hustle_select_self ON public.dancer_hustle FOR SELECT TO authenticated USING ((id = private.current_dancer_id()));
-CREATE POLICY dancer_hustle_update_self ON public.dancer_hustle FOR UPDATE TO authenticated USING ((id = private.current_dancer_id())) WITH CHECK ((id = private.current_dancer_id()));
-
--- table: dancer_kizomba
-
-CREATE TABLE public.dancer_kizomba (
-  id uuid NOT NULL,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  main_role smallint,
-  CONSTRAINT dancer_kizomba_id_fkey FOREIGN KEY (id) REFERENCES dancer(id) ON UPDATE CASCADE ON DELETE CASCADE,
-  CONSTRAINT dancer_kizomba_main_role_fkey FOREIGN KEY (main_role) REFERENCES l_dance_role(id),
-  CONSTRAINT dancer_kizomba_pkey PRIMARY KEY (id)
-);
-CREATE INDEX dancer_kizomba_main_role_idx ON public.dancer_kizomba USING btree (main_role);
-ALTER TABLE public.dancer_kizomba ENABLE ROW LEVEL SECURITY;
-CREATE POLICY dancer_kizomba_delete_self ON public.dancer_kizomba FOR DELETE TO authenticated USING ((id = private.current_dancer_id()));
-CREATE POLICY dancer_kizomba_insert_self ON public.dancer_kizomba FOR INSERT TO authenticated WITH CHECK ((id = private.current_dancer_id()));
-CREATE POLICY dancer_kizomba_select_self ON public.dancer_kizomba FOR SELECT TO authenticated USING ((id = private.current_dancer_id()));
-CREATE POLICY dancer_kizomba_update_self ON public.dancer_kizomba FOR UPDATE TO authenticated USING ((id = private.current_dancer_id())) WITH CHECK ((id = private.current_dancer_id()));
-
--- table: dancer_salsa
-
-CREATE TABLE public.dancer_salsa (
-  id uuid NOT NULL,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  main_role smallint,
-  CONSTRAINT dancer_salsa_id_fkey FOREIGN KEY (id) REFERENCES dancer(id) ON UPDATE CASCADE ON DELETE CASCADE,
-  CONSTRAINT dancer_salsa_main_role_fkey FOREIGN KEY (main_role) REFERENCES l_dance_role(id),
-  CONSTRAINT dancer_salsa_pkey PRIMARY KEY (id)
-);
-CREATE INDEX dancer_salsa_main_role_idx ON public.dancer_salsa USING btree (main_role);
-ALTER TABLE public.dancer_salsa ENABLE ROW LEVEL SECURITY;
-CREATE POLICY dancer_salsa_delete_self ON public.dancer_salsa FOR DELETE TO authenticated USING ((id = private.current_dancer_id()));
-CREATE POLICY dancer_salsa_insert_self ON public.dancer_salsa FOR INSERT TO authenticated WITH CHECK ((id = private.current_dancer_id()));
-CREATE POLICY dancer_salsa_select_self ON public.dancer_salsa FOR SELECT TO authenticated USING ((id = private.current_dancer_id()));
-CREATE POLICY dancer_salsa_update_self ON public.dancer_salsa FOR UPDATE TO authenticated USING ((id = private.current_dancer_id())) WITH CHECK ((id = private.current_dancer_id()));
-
--- table: dancer_style_roles
-
-CREATE TABLE public.dancer_style_roles (
+CREATE TABLE public.dancer_style_profile (
+  id uuid NOT NULL DEFAULT extensions.gen_random_uuid(),
   dancer_id uuid NOT NULL,
   style_id smallint NOT NULL,
-  role_id smallint NOT NULL,
+  is_leader boolean NOT NULL,
+  is_trainer boolean NOT NULL DEFAULT false,
+  is_default boolean NOT NULL DEFAULT false,
+  level_id bigint,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT dancer_style_roles_dancer_id_fkey FOREIGN KEY (dancer_id) REFERENCES dancer(id) ON DELETE CASCADE,
-  CONSTRAINT dancer_style_roles_pkey PRIMARY KEY (dancer_id, style_id, role_id),
-  CONSTRAINT dancer_style_roles_role_id_fkey FOREIGN KEY (role_id) REFERENCES l_dance_role(id) ON DELETE RESTRICT,
-  CONSTRAINT dancer_style_roles_style_id_fkey FOREIGN KEY (style_id) REFERENCES l_dance_style(id) ON DELETE CASCADE
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT dancer_style_profile_dancer_id_fkey FOREIGN KEY (dancer_id) REFERENCES dancer(id) ON DELETE CASCADE,
+  CONSTRAINT dancer_style_profile_dancer_id_style_id_is_leader_key UNIQUE (dancer_id, style_id, is_leader),
+  CONSTRAINT dancer_style_profile_level_id_style_id_fkey FOREIGN KEY (level_id, style_id) REFERENCES styles_levels(id, style_id) ON DELETE SET NULL,
+  CONSTRAINT dancer_style_profile_pkey PRIMARY KEY (id),
+  CONSTRAINT dancer_style_profile_style_id_fkey FOREIGN KEY (style_id) REFERENCES l_dance_style(id) ON DELETE CASCADE
 );
-ALTER TABLE public.dancer_style_roles ENABLE ROW LEVEL SECURITY;
-CREATE POLICY dancer_style_roles_select_own ON public.dancer_style_roles FOR SELECT TO authenticated USING ((dancer_id = private.current_dancer_id()));
-
--- table: dancer_wcs
-
-CREATE TABLE public.dancer_wcs (
-  id uuid NOT NULL,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  main_role smallint,
-  is_trainer boolean DEFAULT false,
-  CONSTRAINT dancer_wcs_id_fkey FOREIGN KEY (id) REFERENCES dancer(id) ON UPDATE CASCADE ON DELETE CASCADE,
-  CONSTRAINT dancer_wcs_main_role_fkey FOREIGN KEY (main_role) REFERENCES l_dance_role(id),
-  CONSTRAINT dancer_wcs_pkey PRIMARY KEY (id)
-);
-CREATE INDEX dancer_wcs_main_role_idx ON public.dancer_wcs USING btree (main_role);
-ALTER TABLE public.dancer_wcs ENABLE ROW LEVEL SECURITY;
-CREATE POLICY dancer_wcs_delete_self ON public.dancer_wcs FOR DELETE TO authenticated USING ((id = private.current_dancer_id()));
-CREATE POLICY dancer_wcs_insert_self ON public.dancer_wcs FOR INSERT TO authenticated WITH CHECK ((id = private.current_dancer_id()));
-CREATE POLICY dancer_wcs_select_self ON public.dancer_wcs FOR SELECT TO authenticated USING ((id = private.current_dancer_id()));
-CREATE POLICY dancer_wcs_update_self ON public.dancer_wcs FOR UPDATE TO authenticated USING ((id = private.current_dancer_id())) WITH CHECK ((id = private.current_dancer_id()));
-
--- table: dancer_zook
-
-CREATE TABLE public.dancer_zook (
-  id uuid NOT NULL,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  main_role smallint,
-  CONSTRAINT dancer_wcs_zook_main_role_fkey FOREIGN KEY (main_role) REFERENCES l_dance_role(id),
-  CONSTRAINT dancer_wcs_zook_pkey PRIMARY KEY (id),
-  CONSTRAINT dancer_zook_id_fkey FOREIGN KEY (id) REFERENCES dancer(id) ON UPDATE CASCADE ON DELETE CASCADE
-);
-CREATE INDEX dancer_zook_main_role_idx ON public.dancer_zook USING btree (main_role);
-ALTER TABLE public.dancer_zook ENABLE ROW LEVEL SECURITY;
-CREATE POLICY dancer_zook_delete_self ON public.dancer_zook FOR DELETE TO authenticated USING ((id = private.current_dancer_id()));
-CREATE POLICY dancer_zook_insert_self ON public.dancer_zook FOR INSERT TO authenticated WITH CHECK ((id = private.current_dancer_id()));
-CREATE POLICY dancer_zook_select_self ON public.dancer_zook FOR SELECT TO authenticated USING ((id = private.current_dancer_id()));
-CREATE POLICY dancer_zook_update_self ON public.dancer_zook FOR UPDATE TO authenticated USING ((id = private.current_dancer_id())) WITH CHECK ((id = private.current_dancer_id()));
+CREATE UNIQUE INDEX dancer_style_profile_one_default ON public.dancer_style_profile USING btree (dancer_id, style_id) WHERE is_default;
+CREATE INDEX dancer_style_profile_dancer_style_idx ON public.dancer_style_profile USING btree (dancer_id, style_id);
+CREATE TRIGGER dancer_style_profile_touch_updated_at BEFORE UPDATE ON public.dancer_style_profile FOR EACH ROW EXECUTE FUNCTION private.touch_updated_at();
+ALTER TABLE public.dancer_style_profile ENABLE ROW LEVEL SECURITY;
+CREATE POLICY dancer_style_profile_delete_own ON public.dancer_style_profile FOR DELETE TO authenticated USING ((dancer_id = private.current_dancer_id()));
+CREATE POLICY dancer_style_profile_insert_own ON public.dancer_style_profile FOR INSERT TO authenticated WITH CHECK ((dancer_id = private.current_dancer_id()));
+CREATE POLICY dancer_style_profile_select_own ON public.dancer_style_profile FOR SELECT TO authenticated USING ((dancer_id = private.current_dancer_id()));
+CREATE POLICY dancer_style_profile_update_own ON public.dancer_style_profile FOR UPDATE TO authenticated USING ((dancer_id = private.current_dancer_id())) WITH CHECK ((dancer_id = private.current_dancer_id()));
 
 -- table: debug_events
 
@@ -555,10 +446,8 @@ CREATE TABLE public.l_dance_style (
   title_en text,
   title_ru text,
   title_sr text,
-  table_name text,
   is_partner_dance boolean NOT NULL DEFAULT true,
-  CONSTRAINT l_dance_style_pkey PRIMARY KEY (id),
-  CONSTRAINT l_dance_style_table_name_key UNIQUE (table_name)
+  CONSTRAINT l_dance_style_pkey PRIMARY KEY (id)
 );
 ALTER TABLE public.l_dance_style ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Enable read access for all users" ON public.l_dance_style FOR SELECT TO PUBLIC USING (true);
@@ -659,6 +548,26 @@ ALTER TABLE public.student_subscription_styles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY student_subscription_styles_select ON public.student_subscription_styles FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
    FROM student_subscriptions s
   WHERE ((s.id = student_subscription_styles.subscription_id) AND ((s.dancer_id = private.current_dancer_id()) OR private.has_app_role('administrator'::app_role))))));
+
+-- table: styles_levels
+
+CREATE TABLE public.styles_levels (
+  id bigint GENERATED BY DEFAULT AS IDENTITY NOT NULL,
+  style_id smallint NOT NULL,
+  code text NOT NULL,
+  title_en text NOT NULL,
+  title_ru text,
+  title_sr text,
+  rank_order smallint NOT NULL DEFAULT 0,
+  active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT styles_levels_id_style_id_key UNIQUE (id, style_id),
+  CONSTRAINT styles_levels_pkey PRIMARY KEY (id),
+  CONSTRAINT styles_levels_style_id_code_key UNIQUE (style_id, code),
+  CONSTRAINT styles_levels_style_id_fkey FOREIGN KEY (style_id) REFERENCES l_dance_style(id) ON DELETE CASCADE
+);
+ALTER TABLE public.styles_levels ENABLE ROW LEVEL SECURITY;
+CREATE POLICY styles_levels_read_active ON public.styles_levels FOR SELECT TO authenticated, anon USING (active);
 
 -- table: subscription_plan_groups
 
