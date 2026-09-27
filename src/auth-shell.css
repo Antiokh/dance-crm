@@ -1,7 +1,3 @@
-.auth-shell-page {
-  padding-bottom: calc(24px + var(--app-safe-bottom, 0px));
-}
-
 .auth-ok {
   color: var(
     --tg-theme-accent-text-color,
