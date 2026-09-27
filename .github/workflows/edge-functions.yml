@@ -19,4 +19,4 @@ jobs:
         with:
           deno-version: v2.x
       - run: deno check supabase/functions/event-weather/index.ts
-      - run: deno check supabase/functions/social-publish-dispatch/index.ts
+      - run: deno check supabase/functions/social-command-worker/index.ts\n      - run: deno check supabase/functions/social-publish-dispatch/index.ts
