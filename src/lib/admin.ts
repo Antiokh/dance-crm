@@ -403,57 +403,25 @@ export type AdminGroupInput = Omit<AdminGroup, 'id' | 'title'> & {
 }
 
 export async function saveAdminGroup(input: AdminGroupInput) {
-  const values = {
-    style_id: input.style_id,
-    description: input.description,
-    level_id: input.level_id,
-    max_capacity: input.max_capacity,
-    approval_required: input.approval_required,
-    enrollment_status: input.enrollment_status,
-    starts_on: input.starts_on,
-    ends_on: input.ends_on,
-    active: input.active,
-  }
+  const { data, error } = await supabase.rpc('admin_save_group', {
+    p_group_id: input.id,
+    p_payload: {
+      style_id: input.style_id,
+      description: input.description,
+      level_id: input.level_id,
+      max_capacity: input.max_capacity,
+      approval_required: input.approval_required,
+      enrollment_status: input.enrollment_status,
+      starts_on: input.starts_on,
+      ends_on: input.ends_on,
+      active: input.active,
+      lead_trainer_id: input.lead_trainer_id,
+    },
+  })
 
-  let groupId = input.id
-
-  if (groupId) {
-    const { error } = await supabase
-      .from('dance_group')
-      .update(values)
-      .eq('id', groupId)
-    if (error) throw error
-  } else {
-    const { data, error } = await supabase
-      .from('dance_group')
-      .insert(values)
-      .select('id')
-      .single()
-    if (error) throw error
-    groupId = String(data.id)
-  }
-
-  const { error: deleteError } = await supabase
-    .from('group_trainers')
-    .delete()
-    .eq('group_id', groupId)
-    .eq('trainer_role', 'lead')
-  if (deleteError) throw deleteError
-
-  if (input.lead_trainer_id) {
-    const { error: trainerError } = await supabase
-      .from('group_trainers')
-      .insert({
-        group_id: groupId,
-        trainer_id: input.lead_trainer_id,
-        trainer_role: 'lead',
-        starts_on: input.starts_on,
-        ends_on: input.ends_on,
-      })
-    if (trainerError) throw trainerError
-  }
-
-  return groupId
+  if (error) throw error
+  if (typeof data !== 'string') throw new Error('Group save response is invalid')
+  return data
 }
 
 export type AdminEventInput = Omit<
