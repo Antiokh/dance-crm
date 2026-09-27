@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   private
 -- Function: admin_save_level_internal
--- Updated:  2026-09-27T08:51:06.842Z
+-- Updated:  2026-09-27T09:41:00.714Z
 
 -- overload
 -- language: plpgsql
@@ -23,11 +23,24 @@ begin
   end if;
 
   if v_level_id is null then
+    v_level_id := nextval('public.styles_levels_id_seq'::regclass);
+
     insert into public.styles_levels(
-      style_id,code,title_en,title_ru,title_sr,rank_order,active,kind,
-      system_code,is_sport_achievement,description
+      id,
+      style_id,
+      code,
+      title_en,
+      title_ru,
+      title_sr,
+      rank_order,
+      active,
+      kind,
+      system_code,
+      is_sport_achievement,
+      description
     )
     values(
+      v_level_id,
       (p_payload->>'style_id')::smallint,
       btrim(p_payload->>'code'),
       btrim(p_payload->>'title_en'),
@@ -39,8 +52,7 @@ begin
       coalesce(nullif(btrim(p_payload->>'system_code'),''),'school'),
       coalesce((p_payload->>'is_sport_achievement')::boolean,false),
       nullif(btrim(p_payload->>'description'),'')
-    )
-    returning id into v_level_id;
+    );
   else
     update public.styles_levels
     set style_id=(p_payload->>'style_id')::smallint,
