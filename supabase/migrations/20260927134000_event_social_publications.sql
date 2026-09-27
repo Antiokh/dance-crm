@@ -226,6 +226,46 @@ as $function$
     'leader_going_count', e.leader_going_count,
     'follower_going_count', e.follower_going_count,
     'other_going_count', e.other_going_count,
+    'balance', jsonb_build_object(
+      'leader', e.leader_going_count,
+      'follower', e.follower_going_count,
+      'other', e.other_going_count,
+      'total',
+        e.leader_going_count
+        + e.follower_going_count
+        + e.other_going_count
+    ),
+    'attendees', coalesce((
+      select jsonb_agg(
+        jsonb_build_object(
+          'name', coalesce(
+            nullif(btrim(d.custom_name), ''),
+            nullif(btrim(concat_ws(' ', d.first_name, d.last_name)), ''),
+            case
+              when nullif(btrim(d.telegram_username), '') is not null
+                then '@' || btrim(d.telegram_username)
+              else null
+            end,
+            'Танцор'
+          ),
+          'role_id', ea.role_id,
+          'responded_at', ea.responded_at
+        )
+        order by
+          case ea.role_id when 1 then 1 when 2 then 2 else 3 end,
+          coalesce(
+            nullif(btrim(d.custom_name), ''),
+            nullif(btrim(concat_ws(' ', d.first_name, d.last_name)), ''),
+            nullif(btrim(d.telegram_username), ''),
+            'Танцор'
+          )
+      )
+      from public.event_attendance ea
+      join public.dancer d on d.id = ea.dancer_id
+      where ea.event_id = e.id
+        and ea.cancelled_at is null
+        and ea.response = 'going'::public.event_rsvp_response
+    ), '[]'::jsonb),
     'venue',
       case when v.id is null then null else jsonb_build_object(
         'id', v.id,
@@ -252,7 +292,7 @@ $function$;
 revoke all on function private.event_social_payload(uuid)
   from public, anon, authenticated;
 
-create or replace function private.refresh_event_social_publication_status(
+create or replace function private.refresh_social_publication_status(
   p_publication_id uuid
 )
 returns void
@@ -299,7 +339,7 @@ begin
 end;
 $function$;
 
-revoke all on function private.refresh_event_social_publication_status(uuid)
+revoke all on function private.refresh_social_publication_status(uuid)
   from public, anon, authenticated;
 
 create or replace function private.schedule_event_social_jobs(
@@ -381,7 +421,7 @@ begin
 
   get diagnostics v_inserted = row_count;
 
-  perform private.refresh_event_social_publication_status(v_publication.id);
+  perform private.refresh_social_publication_status(v_publication.id);
   return v_inserted;
 end;
 $function$;
@@ -441,7 +481,7 @@ begin
       where j.publication_id = v_old_publication_id
         and j.status in ('queued', 'retry');
 
-      perform private.refresh_event_social_publication_status(v_old_publication_id);
+      perform private.refresh_social_publication_status(v_old_publication_id);
     end loop;
   else
     for v_old_publication_id in
@@ -461,7 +501,7 @@ begin
       where j.publication_id = v_old_publication_id
         and j.status in ('queued', 'retry');
 
-      perform private.refresh_event_social_publication_status(v_old_publication_id);
+      perform private.refresh_social_publication_status(v_old_publication_id);
     end loop;
   end if;
 
@@ -769,7 +809,7 @@ begin
         and p.source_id = v_command.source_id
         and p.status in ('queued', 'held', 'partial')
     loop
-      perform private.refresh_event_social_publication_status(v_publication);
+      perform private.refresh_social_publication_status(v_publication);
     end loop;
   else
     v_publication_type := case v_command.operation
@@ -840,7 +880,7 @@ revoke all on function public.social_get_destination(text)
 grant execute on function public.social_get_destination(text)
   to service_role;
 
-create or replace function public.social_get_event_publication_context(
+create or replace function public.social_get_publication_context(
   p_publication_id uuid
 )
 returns jsonb
@@ -852,40 +892,13 @@ as $function$
   with target as (
     select
       p.id,
-      p.source_id as event_id,
+      p.source_type,
+      p.source_id,
       p.publication_type,
       p.version,
-      p.payload,
-      e.published as event_published,
-      e.cancelled_at as event_cancelled_at,
-      e.leader_going_count,
-      e.follower_going_count,
-      e.other_going_count
+      p.payload
     from social.publications p
-    join public.dance_events e on e.id = p.source_id
     where p.id = p_publication_id
-      and p.source_type = 'event'
-  ),
-  attendees as (
-    select
-      ea.event_id,
-      coalesce(
-        nullif(btrim(d.custom_name), ''),
-        nullif(btrim(concat_ws(' ', d.first_name, d.last_name)), ''),
-        case
-          when nullif(btrim(d.telegram_username), '') is not null
-            then '@' || btrim(d.telegram_username)
-          else null
-        end,
-        'Танцор'
-      ) as name,
-      ea.role_id,
-      ea.responded_at
-    from public.event_attendance ea
-    join public.dancer d on d.id = ea.dancer_id
-    join target t on t.event_id = ea.event_id
-    where ea.cancelled_at is null
-      and ea.response = 'going'::public.event_rsvp_response
   ),
   telegram as (
     select
@@ -895,48 +908,26 @@ as $function$
     from social.delivery_jobs j
     join social.publications p
       on p.id = j.publication_id
-    join target t on t.event_id = p.source_id
+    join target t
+      on t.source_type = p.source_type
+     and t.source_id = p.source_id
     join social.destinations d
       on d.key = j.destination_key
     where d.publisher = 'telegram_api'
       and j.status = 'published'
       and j.external_post_id is not null
       and p.publication_type <> 'rsvp_update'
+      and p.version <= t.version
     order by p.version desc, j.published_at desc nulls last
     limit 1
   )
   select jsonb_build_object(
     'publication_id', t.id,
-    'event_id', t.event_id,
+    'source_type', t.source_type,
+    'source_id', t.source_id,
     'publication_type', t.publication_type,
     'version', t.version,
     'payload', t.payload,
-    'event_state', jsonb_build_object(
-      'published', t.event_published,
-      'cancelled_at', t.event_cancelled_at
-    ),
-    'balance', jsonb_build_object(
-      'leader', t.leader_going_count,
-      'follower', t.follower_going_count,
-      'other', t.other_going_count,
-      'total',
-        t.leader_going_count
-        + t.follower_going_count
-        + t.other_going_count
-    ),
-    'attendees', coalesce((
-      select jsonb_agg(
-        jsonb_build_object(
-          'name', a.name,
-          'role_id', a.role_id,
-          'responded_at', a.responded_at
-        )
-        order by
-          case a.role_id when 1 then 1 when 2 then 2 else 3 end,
-          a.name
-      )
-      from attendees a
-    ), '[]'::jsonb),
     'telegram_message', (
       select jsonb_build_object(
         'message_id', tg.external_post_id,
@@ -949,10 +940,12 @@ as $function$
   from target t
 $function$;
 
-revoke all on function public.social_get_event_publication_context(uuid)
+revoke all on function public.social_get_publication_context(uuid)
   from public, anon, authenticated;
-grant execute on function public.social_get_event_publication_context(uuid)
+grant execute on function public.social_get_publication_context(uuid)
   to service_role;
+
+drop function if exists public.social_get_event_publication_context(uuid);
 
 create or replace function public.social_mark_publish_started(
   p_job_id uuid,
@@ -964,7 +957,64 @@ language plpgsql
 security definer
 set search_path = ''
 as $function$
+declare
+  v_publication_id uuid;
+  v_source_type text;
+  v_source_id uuid;
+  v_version integer;
+  v_created_at timestamptz;
 begin
+  select
+    p.id,
+    p.source_type,
+    p.source_id,
+    p.version,
+    p.created_at
+  into
+    v_publication_id,
+    v_source_type,
+    v_source_id,
+    v_version,
+    v_created_at
+  from social.delivery_jobs j
+  join social.publications p on p.id = j.publication_id
+  where j.id = p_job_id
+    and j.status = 'leased'
+    and j.lease_owner = p_worker
+    and j.lease_expires_at > now()
+  for update of j;
+
+  if not found then
+    return false;
+  end if;
+
+  if exists (
+    select 1
+    from social.publications newer
+    where newer.source_type = v_source_type
+      and newer.source_id = v_source_id
+      and newer.version > v_version
+  ) or exists (
+    select 1
+    from public.social_commands command
+    where command.source_type = v_source_type
+      and command.source_id = v_source_id
+      and command.created_at > v_created_at
+      and command.status in ('queued', 'leased', 'retry')
+  ) then
+    update social.delivery_jobs j
+    set status = 'cancelled',
+        lease_owner = null,
+        lease_expires_at = null,
+        last_error = 'Superseded by newer source command before provider call'
+    where j.id = p_job_id
+      and j.status = 'leased'
+      and j.lease_owner = p_worker;
+
+    perform private.refresh_social_publication_status(v_publication_id);
+    return false;
+  end if;
+
   update social.delivery_jobs j
   set publish_started_at = coalesce(j.publish_started_at, now()),
       provider_progress = j.provider_progress || coalesce(p_progress, '{}'::jsonb)
@@ -1024,7 +1074,8 @@ returns table(
   operation text,
   settings jsonb,
   publication_type text,
-  event_id uuid,
+  source_type text,
+  source_id uuid,
   payload jsonb,
   attempt_count integer,
   max_attempts integer,
@@ -1060,7 +1111,7 @@ begin
     select distinct e.publication_id
     from expired e
   loop
-    perform private.refresh_event_social_publication_status(
+    perform private.refresh_social_publication_status(
       v_reaped_publication
     );
   end loop;
@@ -1095,7 +1146,7 @@ begin
     select distinct r.publication_id
     from reaped r
   loop
-    perform private.refresh_event_social_publication_status(
+    perform private.refresh_social_publication_status(
       v_reaped_publication
     );
   end loop;
@@ -1130,6 +1181,8 @@ begin
           j.created_at
       ) as gate_rank
     from social.delivery_jobs j
+    join social.publications p
+      on p.id = j.publication_id
     join social.destinations d
       on d.key = j.destination_key
     left join social.rate_limit_groups g
@@ -1148,6 +1201,21 @@ begin
         )
       )
       and d.enabled
+      and not exists (
+        select 1
+        from social.publications newer
+        where newer.source_type = p.source_type
+          and newer.source_id = p.source_id
+          and newer.version > p.version
+      )
+      and not exists (
+        select 1
+        from public.social_commands command
+        where command.source_type = p.source_type
+          and command.source_id = p.source_id
+          and command.created_at > p.created_at
+          and command.status in ('queued', 'leased', 'retry')
+      )
       and coalesce(d.cooldown_until, '-infinity'::timestamptz) <= v_now
       and (
         d.last_claimed_at is null
@@ -1213,7 +1281,8 @@ begin
     c.operation,
     d.settings,
     p.publication_type,
-    p.source_id as event_id,
+    p.source_type,
+    p.source_id,
     p.payload,
     c.attempt_count,
     c.max_attempts,
@@ -1282,7 +1351,7 @@ begin
       and coalesce(g.cooldown_until, '-infinity'::timestamptz) <= now();
   end if;
 
-  perform private.refresh_event_social_publication_status(v_publication_id);
+  perform private.refresh_social_publication_status(v_publication_id);
   return true;
 end;
 $function$;
@@ -1372,7 +1441,7 @@ begin
     end if;
   end if;
 
-  perform private.refresh_event_social_publication_status(v_publication_id);
+  perform private.refresh_social_publication_status(v_publication_id);
   return true;
 end;
 $function$;
