@@ -14,7 +14,10 @@ const commandMigration = read(
   'supabase/migrations/20260927133000_social_command_queue.sql',
 )
 const publisherMigration = read(
-  'supabase/migrations/20260927134000_event_social_publications.sql',
+  'supabase/migrations/20260927134000_social_publishing_core.sql',
+)
+const eventAdapterMigration = read(
+  'supabase/migrations/20260927134500_event_social_adapter.sql',
 )
 const workerMigration = read(
   'supabase/migrations/20260927141000_social_dispatch_worker.sql',
@@ -64,6 +67,19 @@ if (!publisherMigration.includes('social.publications')
   || !publisherMigration.includes('social.delivery_jobs')
   || !publisherMigration.includes('social.destinations')) {
   fail('expected private publisher tables are missing')
+}
+
+if (/public\.(dance_events|event_attendance|dancer|venues|l_dance_style)/.test(publisherMigration)) {
+  fail('reusable social core must not depend on Dance CRM domain tables')
+}
+
+if (!/public\.dance_events/.test(eventAdapterMigration)
+  || !/public\.enqueue_social_command/.test(eventAdapterMigration)) {
+  fail('Dance event adapter must remain outside the reusable social core')
+}
+
+if (/social_get_event_publication_context|public\.dance_events|public\.event_attendance/.test(dispatcher)) {
+  fail('delivery dispatcher must render from immutable social snapshots, not live Dance CRM tables')
 }
 
 if (process.exitCode) {
