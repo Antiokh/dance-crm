@@ -75,9 +75,14 @@ to authenticated
 with check (
   status = 'queued'
   and attempt_count = 0
+  and max_attempts = 8
+  and priority between 0 and 1000
+  and available_at >= now() - interval '5 minutes'
+  and available_at <= now() + interval '5 minutes'
   and lease_owner is null
   and lease_expires_at is null
   and processed_at is null
+  and last_error is null
   and created_by = auth.uid()
   and source_type = 'event'
   and (
@@ -85,11 +90,18 @@ with check (
     or (
       command_type = 'social.rsvp_update'
       and operation = 'rsvp_update'
+      and priority <= 200
+      and (payload - 'transaction_id') = '{}'::jsonb
       and exists (
         select 1
         from public.event_attendance ea
+        join public.dance_events e
+          on e.id = ea.event_id
         where ea.event_id = source_id
           and ea.dancer_id = private.current_dancer_id()
+          and e.published
+          and e.cancelled_at is null
+          and coalesce(e.ends_at, e.starts_at) > now()
       )
     )
   )
