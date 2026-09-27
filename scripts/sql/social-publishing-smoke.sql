@@ -151,7 +151,8 @@ values (
 );
 
 \ir ../../supabase/migrations/20260927133000_social_command_queue.sql
-\ir ../../supabase/migrations/20260927134000_event_social_publications.sql
+\ir ../../supabase/migrations/20260927134000_social_publishing_core.sql
+\ir ../../supabase/migrations/20260927134500_event_social_adapter.sql
 
 do $$
 begin
