@@ -172,7 +172,7 @@ select public.admin_configure_social_workers(
 );
 ```
 
-The database sends the Vault-managed worker secret as `x-dance-social-secret`. Both functions compare it in constant time before claiming work.
+The database sends the Vault-managed worker secret as `x-social-worker-secret`. Both functions compare it in constant time before claiming work.
 
 ## Delivery safety
 
