@@ -109,7 +109,7 @@ security invoker
 set search_path = ''
 as $function$
 declare
-  v_id uuid;
+  v_id uuid := extensions.gen_random_uuid();
   v_payload jsonb := coalesce(p_payload, '{}'::jsonb);
 begin
   if p_command_type not in (
@@ -144,6 +144,7 @@ begin
   end if;
 
   insert into public.social_commands (
+    id,
     command_type,
     source_type,
     source_id,
@@ -153,6 +154,7 @@ begin
     created_by
   )
   values (
+    v_id,
     p_command_type,
     p_source_type,
     p_source_id,
@@ -160,8 +162,7 @@ begin
     v_payload,
     least(greatest(coalesce(p_priority, 100), 0), 1000),
     auth.uid()
-  )
-  returning id into v_id;
+  );
 
   return v_id;
 end;
