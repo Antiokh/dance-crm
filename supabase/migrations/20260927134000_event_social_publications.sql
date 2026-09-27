@@ -77,6 +77,10 @@ create table if not exists social.delivery_jobs (
     references social.destinations(key) on delete restrict,
   operation text not null default 'publish'
     check (operation in ('publish', 'edit')),
+  lane text not null default 'transactional'
+    check (lane in ('transactional', 'scheduled')),
+  expires_at timestamptz,
+  depends_on_job_id uuid references social.delivery_jobs(id) on delete set null,
   idempotency_key text not null unique,
   status text not null default 'queued' check (
     status in ('queued', 'leased', 'retry', 'published', 'dead', 'cancelled')
@@ -323,6 +327,8 @@ begin
     publication_id,
     destination_key,
     operation,
+    lane,
+    expires_at,
     idempotency_key,
     priority,
     max_attempts
@@ -335,6 +341,12 @@ begin
         and d.publisher = 'telegram_api'
       then 'edit'
       else 'publish'
+    end,
+    'transactional',
+    case
+      when v_publication.publication_type = 'rsvp_update'
+        then nullif(v_publication.payload->>'ends_at', '')::timestamptz
+      else null
     end,
     v_publication.id::text || ':' || d.key,
     case
@@ -1034,6 +1046,26 @@ begin
   end if;
 
   for v_reaped_publication in
+    with expired as (
+      update social.delivery_jobs j
+      set status = 'cancelled',
+          last_error = 'Delivery job expired before publication',
+          lease_owner = null,
+          lease_expires_at = null
+      where j.status in ('queued', 'retry')
+        and j.expires_at is not null
+        and j.expires_at <= v_now
+      returning j.publication_id
+    )
+    select distinct e.publication_id
+    from expired e
+  loop
+    perform private.refresh_event_social_publication_status(
+      v_reaped_publication
+    );
+  end loop;
+
+  for v_reaped_publication in
     with reaped as (
       update social.delivery_jobs j
       set status = case
@@ -1075,9 +1107,27 @@ begin
       j.priority,
       j.available_at,
       j.created_at,
+      j.priority
+        + least(
+            120,
+            greatest(
+              0,
+              floor(extract(epoch from (v_now - j.created_at)) / 60)::integer
+            )
+          ) as effective_priority,
       row_number() over (
         partition by coalesce(d.rate_limit_group, 'destination:' || d.key)
-        order by j.priority desc, j.available_at, j.created_at
+        order by
+          j.priority
+            + least(
+                120,
+                greatest(
+                  0,
+                  floor(extract(epoch from (v_now - j.created_at)) / 60)::integer
+                )
+              ) desc,
+          j.available_at,
+          j.created_at
       ) as gate_rank
     from social.delivery_jobs j
     join social.destinations d
@@ -1087,6 +1137,16 @@ begin
     where j.status in ('queued', 'retry')
       and j.available_at <= v_now
       and j.attempt_count < j.max_attempts
+      and (j.expires_at is null or j.expires_at > v_now)
+      and (
+        j.depends_on_job_id is null
+        or exists (
+          select 1
+          from social.delivery_jobs dependency
+          where dependency.id = j.depends_on_job_id
+            and dependency.status = 'published'
+        )
+      )
       and d.enabled
       and coalesce(d.cooldown_until, '-infinity'::timestamptz) <= v_now
       and (
@@ -1113,7 +1173,7 @@ begin
     from social.delivery_jobs j
     join eligible e on e.id = j.id
     where e.gate_rank = 1
-    order by e.priority desc, e.available_at, e.created_at
+    order by e.effective_priority desc, e.available_at, e.created_at
     for update of j skip locked
     limit v_limit
   ),
