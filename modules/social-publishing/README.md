@@ -64,3 +64,7 @@ A future consumer can replace those pieces without changing private queue/delive
 ## Canonical files
 
 See `INSTALL.md` for the exact installation order and `API.md` for the exposed/service-only contract.
+
+## Reference audit
+
+See `AUDIT.md` for the RSLive/Dobri comparison, retained behavior, and deliberate transport-parity gaps.
