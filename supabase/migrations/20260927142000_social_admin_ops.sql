@@ -1,6 +1,38 @@
 -- Administrative control/diagnostics for the private social module.
 -- These RPCs expose only safe configuration and operational summaries.
 
+create or replace function public.admin_configure_social_workers(
+  p_command_url text,
+  p_dispatch_url text,
+  p_enabled boolean default true
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+begin
+  if not private.has_app_role('administrator'::public.app_role) then
+    raise exception 'administrator role required'
+      using errcode = '42501';
+  end if;
+
+  return public.social_configure_workers(
+    p_command_url,
+    p_dispatch_url,
+    p_enabled,
+    private.current_dancer_id()
+  );
+end;
+$function$;
+
+revoke all on function public.admin_configure_social_workers(
+  text, text, boolean
+) from public, anon;
+grant execute on function public.admin_configure_social_workers(
+  text, text, boolean
+) to authenticated;
+
 create or replace function public.admin_set_social_destination(
   p_key text,
   p_enabled boolean,
