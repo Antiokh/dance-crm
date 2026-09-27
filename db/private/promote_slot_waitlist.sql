@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   private
 -- Function: promote_slot_waitlist
--- Updated:  2026-09-26T20:33:35.869Z
+-- Updated:  2026-09-27T01:11:00.493Z
 
 -- overload
 -- language: plpgsql
@@ -57,6 +57,8 @@ begin
   update public.bookings
   set status = 'booked'::public.booking_status
   where id = v_booking_id;
+
+  perform private.sync_overbook_request_for_booking(v_booking_id);
 
   return v_booking_id;
 end;
