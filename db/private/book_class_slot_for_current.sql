@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   private
 -- Function: book_class_slot_for_current
--- Updated:  2026-09-26T20:33:37.366Z
+-- Updated:  2026-09-27T01:11:01.886Z
 
 -- overload
 -- language: plpgsql
@@ -136,6 +136,8 @@ begin
     )
     returning * into v_booking;
   end if;
+
+  perform private.sync_overbook_request_for_booking(v_booking.id);
 
   return v_booking;
 end;
