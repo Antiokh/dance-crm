@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   public
 -- Function: get_my_dancer_home_feed
--- Updated:  2026-09-27T07:42:03.116Z
+-- Updated:  2026-09-27T08:01:06.537Z
 
 -- overload
 -- language: plpgsql
@@ -169,7 +169,7 @@ begin
       cs.visibility,
       g.id as group_id,
       g.title as group_title,
-      coalesce(gl.title_ru, gl.title_en, gl.title_sr) as group_level,
+      coalesce(gl.title_en, gl.title_ru, gl.title_sr) as group_level,
       jsonb_build_object(
         'id', ds.id,
         'title_en', ds.title_en,
@@ -233,7 +233,7 @@ begin
       cs.visibility,
       g.id as group_id,
       g.title as group_title,
-      coalesce(gl.title_ru, gl.title_en, gl.title_sr) as group_level,
+      coalesce(gl.title_en, gl.title_ru, gl.title_sr) as group_level,
       jsonb_build_object(
         'id', ds.id,
         'title_en', ds.title_en,
