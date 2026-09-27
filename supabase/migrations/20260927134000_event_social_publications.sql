@@ -690,6 +690,8 @@ as $function$
       p.publication_type,
       p.version,
       p.payload,
+      e.published as event_published,
+      e.cancelled_at as event_cancelled_at,
       e.leader_going_count,
       e.follower_going_count,
       e.other_going_count
@@ -742,6 +744,10 @@ as $function$
     'publication_type', t.publication_type,
     'version', t.version,
     'payload', t.payload,
+    'event_state', jsonb_build_object(
+      'published', t.event_published,
+      'cancelled_at', t.event_cancelled_at
+    ),
     'balance', jsonb_build_object(
       'leader', t.leader_going_count,
       'follower', t.follower_going_count,
