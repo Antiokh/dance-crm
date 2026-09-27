@@ -1255,7 +1255,9 @@ function EventEditor({
     setAnnouncementImageUrl(template.announcement_image_url ?? '')
     setVenueId(template.venue_id ?? '')
     setStyleId(template.style_id === null ? '' : String(template.style_id))
-    setEndsLocal(addLocalMinutes(startsLocal, template.duration_minutes))
+    if (startsLocal && template.duration_minutes) {
+      setEndsLocal(addLocalMinutes(startsLocal, template.duration_minutes))
+    }
   }
 
   const saveTemplate = async () => {
