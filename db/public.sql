@@ -3,7 +3,7 @@
 -- Schema:   public
 -- Entity:   tables
 -- Mode:     table_bundle
--- Updated:  2026-09-27T00:51:05.430Z
+-- Updated:  2026-09-27T01:01:03.893Z
 
 -- table: bookings
 
@@ -403,14 +403,18 @@ CREATE TABLE public.event_attendance (
   dancer_id uuid NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  cancelled_at timestamp with time zone,
   CONSTRAINT event_attendance_dancer_id_fkey FOREIGN KEY (dancer_id) REFERENCES dancer(id) ON DELETE CASCADE,
   CONSTRAINT event_attendance_event_id_fkey FOREIGN KEY (event_id) REFERENCES dance_events(id) ON DELETE CASCADE,
   CONSTRAINT event_attendance_pkey PRIMARY KEY (event_id, dancer_id)
 );
 CREATE INDEX event_attendance_dancer_idx ON public.event_attendance USING btree (dancer_id, event_id);
+CREATE INDEX event_attendance_active_idx ON public.event_attendance USING btree (event_id, dancer_id) WHERE (cancelled_at IS NULL);
 CREATE TRIGGER event_attendance_touch_updated_at BEFORE UPDATE ON public.event_attendance FOR EACH ROW EXECUTE FUNCTION private.touch_updated_at();
 ALTER TABLE public.event_attendance ENABLE ROW LEVEL SECURITY;
+CREATE POLICY event_attendance_insert_self ON public.event_attendance FOR INSERT TO authenticated WITH CHECK ((dancer_id = private.current_dancer_id()));
 CREATE POLICY event_attendance_select ON public.event_attendance FOR SELECT TO authenticated USING (((dancer_id = private.current_dancer_id()) OR private.has_app_role('administrator'::app_role)));
+CREATE POLICY event_attendance_update_self ON public.event_attendance FOR UPDATE TO authenticated USING ((dancer_id = private.current_dancer_id())) WITH CHECK ((dancer_id = private.current_dancer_id()));
 
 -- table: group_memberships
 
