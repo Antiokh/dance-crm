@@ -79,3 +79,12 @@
   );
   text-align: left;
 }
+
+
+.dancer-home-page.has-attention {
+  padding-top: 0;
+}
+
+.dancer-home-attention {
+  margin-top: 0;
+}

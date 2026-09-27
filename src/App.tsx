@@ -234,7 +234,7 @@ function DancerHome({ state }: { state: FeedState }) {
   return (
     <>
       {state.data.attention.length > 0 && (
-        <Section className="tgui-section" header="Внимание">
+        <Section className="tgui-section dancer-home-attention">
           <List className="tgui-trip-list">
             {state.data.attention.map((item) => (
               <Cell
@@ -474,7 +474,15 @@ export default function App() {
       </header>
 
       <main>
-        <section className="tgui-page">
+        <section
+          className={
+            auth.status === 'authenticated' &&
+            feed.status === 'ready' &&
+            feed.data.attention.length > 0
+              ? 'tgui-page dancer-home-page has-attention'
+              : 'tgui-page dancer-home-page'
+          }
+        >
           {loading ? (
             <Placeholder
               header="Авторизация…"
