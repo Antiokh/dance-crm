@@ -17,6 +17,12 @@ export type HomeStyle = {
   is_partner_dance: boolean
 }
 
+export type EventRoleBalance = {
+  leader: number
+  follower: number
+  other: number
+}
+
 export type DanceEvent = {
   id: string
   event_type: 'party' | 'open_class'
@@ -27,6 +33,7 @@ export type DanceEvent = {
   venue: HomeVenue | null
   style: HomeStyle | null
   attending: boolean
+  role_balance: EventRoleBalance | null
 }
 
 export type GroupClass = {
@@ -126,6 +133,7 @@ function parseEvent(value: unknown): DanceEvent | null {
     venue: venue(source.venue),
     style: style(source.style),
     attending: source.attending === true,
+    role_balance: null,
   }
 }
 
@@ -236,15 +244,83 @@ export async function loadDancerHomeFeed(): Promise<DancerHomeFeed> {
   const source = object(feedResult.data)
   if (!source) throw new Error('Dancer home feed is unavailable')
 
+  const parsedAttention = parseList(source.attention, parseAttention)
+  const parsedTodayEvents = parseList(source.today_events, parseEvent)
+  const parsedEvents = parseList(source.events, parseEvent)
+  const visibleEventList = [
+    ...parsedAttention.flatMap((item) => item.event ? [item.event] : []),
+    ...parsedTodayEvents,
+    ...parsedEvents,
+  ]
+  const balanceEventIds = Array.from(new Set(
+    visibleEventList.map((event) => event.id),
+  ))
+  const styleIds = Array.from(new Set(
+    visibleEventList.flatMap((event) => event.style ? [event.style.id] : []),
+  ))
+
+  const balances = new Map<string, EventRoleBalance>()
+  const partnerStyles = new Set<number>()
+
+  const [balanceResult, stylesResult] = await Promise.all([
+    balanceEventIds.length > 0
+      ? supabase
+          .from('dance_events')
+          .select('id, leader_going_count, follower_going_count, other_going_count')
+          .in('id', balanceEventIds)
+      : Promise.resolve({ data: [], error: null }),
+    styleIds.length > 0
+      ? supabase
+          .from('l_dance_style')
+          .select('id, is_partner_dance')
+          .in('id', styleIds)
+      : Promise.resolve({ data: [], error: null }),
+  ])
+
+  if (balanceResult.error) throw balanceResult.error
+  if (stylesResult.error) throw stylesResult.error
+
+  for (const row of balanceResult.data ?? []) {
+    balances.set(String(row.id), {
+      leader: typeof row.leader_going_count === 'number'
+        ? row.leader_going_count
+        : 0,
+      follower: typeof row.follower_going_count === 'number'
+        ? row.follower_going_count
+        : 0,
+      other: typeof row.other_going_count === 'number'
+        ? row.other_going_count
+        : 0,
+    })
+  }
+
+  for (const row of stylesResult.data ?? []) {
+    if (row.is_partner_dance === true) {
+      partnerStyles.add(Number(row.id))
+    }
+  }
+
   const eventIds = new Set(attendState.eventIds)
   const bookings = new Map(
     attendState.bookings.map((booking) => [booking.slot_id, booking]),
   )
 
-  const attachEventState = (event: DanceEvent): DanceEvent => ({
-    ...event,
-    attending: eventIds.has(event.id),
-  })
+  const attachEventState = (event: DanceEvent): DanceEvent => {
+    const isPartnerDance =
+      event.style ? partnerStyles.has(event.style.id) : false
+
+    return {
+      ...event,
+      style: event.style
+        ? { ...event.style, is_partner_dance: isPartnerDance }
+        : null,
+      attending: eventIds.has(event.id),
+      role_balance:
+        isPartnerDance
+          ? balances.get(event.id) ?? { leader: 0, follower: 0, other: 0 }
+          : null,
+    }
+  }
 
   const attachClassState = (item: GroupClass): GroupClass => {
     const booking = bookings.get(item.id)
@@ -258,13 +334,13 @@ export async function loadDancerHomeFeed(): Promise<DancerHomeFeed> {
   }
 
   return {
-    attention: parseList(source.attention, parseAttention).map((item) => ({
+    attention: parsedAttention.map((item) => ({
       ...item,
       event: item.event ? attachEventState(item.event) : null,
     })),
-    today_events: parseList(source.today_events, parseEvent).map(attachEventState),
+    today_events: parsedTodayEvents.map(attachEventState),
     today_classes: parseList(source.today_classes, parseClass).map(attachClassState),
-    events: parseList(source.events, parseEvent).map(attachEventState),
+    events: parsedEvents.map(attachEventState),
     classes: parseList(source.classes, parseClass).map(attachClassState),
   }
 }

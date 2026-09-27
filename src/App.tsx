@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Cell,
   List,
@@ -27,6 +27,10 @@ import {
   type HomeStyle,
 } from './lib/homeFeed'
 import {
+  getEventRsvpIntent,
+  setEventRsvpResponse,
+} from './lib/eventRsvp'
+import {
   loadDancerProfileData,
   type DancerProfileData,
 } from './lib/profile'
@@ -39,7 +43,11 @@ import {
   loadSchoolCatalog,
   type SchoolCatalog,
 } from './lib/school'
-import { getTelegramUser, setTelegramVerticalSwipesEnabled } from './lib/telegram'
+import {
+  getTelegramUser,
+  setTelegramVerticalSwipesEnabled,
+  showTelegramNotice,
+} from './lib/telegram'
 import { getNativeTelegramUser } from './lib/tma'
 
 const initialAuth: AuthState = {
@@ -222,7 +230,7 @@ function classDescription(
 function RoleBalanceIndicator({
   balance,
 }: {
-  balance: GroupClass['role_balance']
+  balance: { leader: number; follower: number } | null
 }) {
   if (!balance) return null
 
@@ -304,7 +312,7 @@ function DateBadge({
   balance = null,
 }: {
   value: string
-  balance?: GroupClass['role_balance']
+  balance?: { leader: number; follower: number } | null
 }) {
   const parts = dateParts(value)
 
@@ -322,7 +330,7 @@ function TimeBadge({
   balance = null,
 }: {
   value: string
-  balance?: GroupClass['role_balance']
+  balance?: { leader: number; follower: number } | null
 }) {
   return (
     <span className="dancer-home-time">
@@ -349,6 +357,9 @@ function DancerHome({
 }) {
   const [eventsExpanded, setEventsExpanded] = useState(false)
   const [eventOverrides, setEventOverrides] = useState<Record<string, boolean>>({})
+  const [eventBalanceOverrides, setEventBalanceOverrides] = useState<
+    Record<string, NonNullable<DanceEvent['role_balance']>>
+  >({})
   const [classOverrides, setClassOverrides] = useState<Record<string, ClassAttendState>>({})
   const [pendingActions, setPendingActions] = useState<Record<string, boolean>>({})
   const [actionError, setActionError] = useState<string | null>(null)
@@ -392,6 +403,9 @@ function DancerHome({
   const eventAttending = (event: DanceEvent) =>
     eventOverrides[event.id] ?? event.attending
 
+  const eventRoleBalance = (event: DanceEvent) =>
+    eventBalanceOverrides[event.id] ?? event.role_balance
+
   const styleProfile = (item: GroupClass) =>
     dancerStyles.find((style) => style.id === item.style.id) ?? null
 
@@ -432,7 +446,14 @@ function DancerHome({
 
     try {
       const actual = await setEventAttending(event.id, attending)
-      setEventOverrides((current) => ({ ...current, [event.id]: actual }))
+      setEventOverrides((current) => ({
+        ...current,
+        [event.id]: actual.attending,
+      }))
+      setEventBalanceOverrides((current) => ({
+        ...current,
+        [event.id]: actual.roleBalance,
+      }))
     } catch (error) {
       setEventOverrides((current) => ({ ...current, [event.id]: previous }))
       setActionError(error instanceof Error ? error.message : String(error))
@@ -589,7 +610,16 @@ function DancerHome({
                   <Cell
                     key={`event-${today.event.id}`}
                     className="tgui-trip-cell quick-attend-cell"
-                    before={<TimeBadge value={today.event.starts_at} />}
+                    before={
+                      <TimeBadge
+                        value={today.event.starts_at}
+                        balance={
+                          today.event.style?.is_partner_dance
+                            ? eventRoleBalance(today.event)
+                            : null
+                        }
+                      />
+                    }
                     after={
                       <QuickAttendToggle
                         checked={attending}
@@ -674,7 +704,16 @@ function DancerHome({
                 <Cell
                   key={event.id}
                   className="tgui-trip-cell quick-attend-cell"
-                  before={<DateBadge value={event.starts_at} />}
+                  before={
+                    <DateBadge
+                      value={event.starts_at}
+                      balance={
+                        event.style?.is_partner_dance
+                          ? eventRoleBalance(event)
+                          : null
+                      }
+                    />
+                  }
                   after={
                     <QuickAttendToggle
                       checked={attending}
@@ -1050,6 +1089,8 @@ export default function App() {
     () => getNativeTelegramUser() ?? getTelegramUser(),
     [],
   )
+  const eventRsvpIntent = useMemo(() => getEventRsvpIntent(), [])
+  const eventRsvpHandled = useRef(false)
 
   const [auth, setAuth] = useState<AuthState>(initialAuth)
   const [role, setRole] = useState<AppRole>('dancer')
@@ -1124,6 +1165,64 @@ export default function App() {
       cancelled = true
     }
   }, [auth.status])
+
+  useEffect(() => {
+    if (
+      auth.status !== 'authenticated'
+      || !eventRsvpIntent
+      || eventRsvpHandled.current
+    ) {
+      return
+    }
+
+    eventRsvpHandled.current = true
+    setRole('dancer')
+    setView('activities')
+
+    void setEventRsvpResponse(
+      eventRsvpIntent.eventId,
+      eventRsvpIntent.response,
+    )
+      .then(async (result) => {
+        if (eventRsvpIntent.source === 'web_query') {
+          const url = new URL(window.location.href)
+          url.searchParams.delete('event')
+          url.searchParams.delete('rsvp')
+          window.history.replaceState(
+            window.history.state,
+            '',
+            `${url.pathname}${url.search}${url.hash}`,
+          )
+        }
+
+        const role = result.role_id === 1
+          ? 'Leader'
+          : result.role_id === 2
+            ? 'Follower'
+            : null
+
+        showTelegramNotice(
+          eventRsvpIntent.response === 'going'
+            ? [
+                'Вы отметились: «Я приду».',
+                role ? `Роль: ${role}.` : null,
+                `Сейчас идут: ${result.going_count}.`,
+              ].filter(Boolean).join('\n')
+            : 'Вы отметились: «Я не приду».',
+          'Ответ сохранён',
+        )
+
+        const data = await loadDancerHomeFeed()
+        setFeed({ status: 'ready', data, error: null })
+      })
+      .catch((error: unknown) => {
+        eventRsvpHandled.current = false
+        showTelegramNotice(
+          error instanceof Error ? error.message : String(error),
+          'Не удалось сохранить ответ',
+        )
+      })
+  }, [auth.status, eventRsvpIntent])
 
   useEffect(() => {
     if (view !== 'info') return

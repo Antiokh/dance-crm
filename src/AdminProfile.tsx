@@ -15,10 +15,14 @@ import TelegramSelect from './components/TelegramSelect'
 import TelegramSwitch from './components/TelegramSwitch'
 import TelegramTextarea from './components/TelegramTextarea'
 import {
+  addLocalMinutes,
+  eventDurationMinutes,
   isoToLocalInput,
   loadAdminCatalog,
+  loadAdminEventWeather,
   saveAdminDancer,
   saveAdminEvent,
+  saveAdminEventTemplate,
   saveAdminGroup,
   saveAdminLevel,
   saveAdminStyle,
@@ -28,6 +32,8 @@ import {
   type AdminDancer,
   type AdminDancerStyleProfile,
   type AdminEvent,
+  type AdminEventTemplate,
+  type AdminEventWeatherResult,
   type AdminGroup,
   type AdminLevel,
   type AdminStyle,
@@ -39,6 +45,12 @@ export type AdminView = 'dancers' | 'schedule' | 'settings'
 type LoadState =
   | { status: 'loading'; data: null; error: null }
   | { status: 'ready'; data: AdminCatalog; error: null }
+  | { status: 'error'; data: null; error: string }
+
+type WeatherState =
+  | { status: 'idle'; data: null; error: null }
+  | { status: 'loading'; data: null; error: null }
+  | { status: 'ready'; data: AdminEventWeatherResult; error: null }
   | { status: 'error'; data: null; error: string }
 
 type EditorState =
@@ -1168,14 +1180,114 @@ function EventEditor({
   const [type, setType] = useState<AdminEvent['event_type']>(event?.event_type ?? 'party')
   const [title, setTitle] = useState(event?.title ?? '')
   const [description, setDescription] = useState(event?.description ?? '')
+  const [announcementImageUrl, setAnnouncementImageUrl] = useState(
+    event?.announcement_image_url ?? '',
+  )
   const [startsLocal, setStartsLocal] = useState(isoToLocalInput(event?.starts_at ?? null))
   const [endsLocal, setEndsLocal] = useState(isoToLocalInput(event?.ends_at ?? null))
   const [venueId, setVenueId] = useState(event?.venue_id ?? '')
   const [styleId, setStyleId] = useState(event?.style_id ? String(event.style_id) : '')
   const [published, setPublished] = useState(event?.published ?? true)
   const [cancelled, setCancelled] = useState(Boolean(event?.cancelled_at))
+  const [templateId, setTemplateId] = useState('')
+  const [templateSaving, setTemplateSaving] = useState(false)
+  const [templateMessage, setTemplateMessage] = useState<string | null>(null)
+  const [weather, setWeather] = useState<WeatherState>({
+    status: 'idle',
+    data: null,
+    error: null,
+  })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const selectedTemplate = catalog.event_templates.find(
+    (template) => template.id === templateId,
+  )
+  const selectedVenue = catalog.venues.find((venue) => venue.id === venueId)
+
+  useEffect(() => {
+    if (
+      !startsLocal
+      || !selectedVenue
+      || selectedVenue.latitude === null
+      || selectedVenue.longitude === null
+    ) {
+      setWeather({ status: 'idle', data: null, error: null })
+      return
+    }
+
+    let cancelled = false
+    const timeout = window.setTimeout(() => {
+      setWeather({ status: 'loading', data: null, error: null })
+      void loadAdminEventWeather(selectedVenue, startsLocal)
+        .then((data) => {
+          if (!cancelled) {
+            setWeather({ status: 'ready', data, error: null })
+          }
+        })
+        .catch((caught: unknown) => {
+          if (!cancelled) {
+            setWeather({
+              status: 'error',
+              data: null,
+              error: caught instanceof Error ? caught.message : String(caught),
+            })
+          }
+        })
+    }, 350)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeout)
+    }
+  }, [selectedVenue, startsLocal])
+
+  const applyTemplate = (nextId: string) => {
+    setTemplateId(nextId)
+    setTemplateMessage(null)
+
+    const template = catalog.event_templates.find((item) => item.id === nextId)
+    if (!template) return
+
+    setType(template.event_type)
+    setTitle(template.title)
+    setDescription(template.description ?? '')
+    setAnnouncementImageUrl(template.announcement_image_url ?? '')
+    setVenueId(template.venue_id ?? '')
+    setStyleId(template.style_id === null ? '' : String(template.style_id))
+    if (startsLocal && template.duration_minutes) {
+      setEndsLocal(addLocalMinutes(startsLocal, template.duration_minutes))
+    }
+  }
+
+  const saveTemplate = async () => {
+    setTemplateSaving(true)
+    setTemplateMessage(null)
+    setError(null)
+
+    try {
+      const template = selectedTemplate as AdminEventTemplate | undefined
+      const id = await saveAdminEventTemplate({
+        id: template?.id ?? null,
+        name: template?.name ?? title.trim(),
+        event_type: type,
+        title,
+        description: nullable(description),
+        announcement_image_url: nullable(announcementImageUrl),
+        duration_minutes: eventDurationMinutes(startsLocal, endsLocal),
+        venue_id: nullable(venueId),
+        style_id: nullableNumber(styleId),
+        active: true,
+      })
+      setTemplateId(id)
+      setTemplateMessage(template ? 'Шаблон обновлён' : 'Шаблон сохранён')
+      await onSaved()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught))
+    } finally {
+      setTemplateSaving(false)
+    }
+  }
 
   const submit = async (formEvent: FormEvent) => {
     formEvent.preventDefault()
@@ -1188,6 +1300,7 @@ function EventEditor({
         event_type: type,
         title,
         description: nullable(description),
+        announcement_image_url: nullable(announcementImageUrl),
         starts_local: startsLocal,
         ends_local: endsLocal,
         venue_id: nullable(venueId),
@@ -1213,6 +1326,32 @@ function EventEditor({
     >
       <form onSubmit={submit}>
         <FormSection>
+          <Field label="Шаблон">
+            <TelegramSelect value={templateId} onChange={(e) => applyTemplate(e.target.value)}>
+              <option value="">Без шаблона</option>
+              {catalog.event_templates
+                .filter((template) => template.active || template.id === templateId)
+                .map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name}
+                  </option>
+                ))}
+            </TelegramSelect>
+          </Field>
+
+          <div className="admin-template-actions">
+            <Button
+              type="button"
+              size="s"
+              loading={templateSaving}
+              disabled={templateSaving || !title.trim()}
+              onClick={() => void saveTemplate()}
+            >
+              {selectedTemplate ? 'Обновить шаблон' : 'Сохранить как шаблон'}
+            </Button>
+            {templateMessage ? <span>{templateMessage}</span> : null}
+          </div>
+
           <Field label="Тип">
             <TelegramSelect value={type} onChange={(e) => setType(e.target.value as AdminEvent['event_type'])}>
               <option value="party">Вечеринка</option>
@@ -1228,9 +1367,29 @@ function EventEditor({
             <TelegramTextarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
           </Field>
 
+          <Field label="Картинка для анонса">
+            <TelegramInput
+              type="url"
+              value={announcementImageUrl}
+              onChange={(e) => setAnnouncementImageUrl(e.target.value)}
+              placeholder="https://… (нужна для Instagram)"
+            />
+          </Field>
+
           <div className="two-col">
             <Field label="Начало">
-              <TelegramInput type="datetime-local" required value={startsLocal} onChange={(e) => setStartsLocal(e.target.value)} />
+              <TelegramInput
+                type="datetime-local"
+                required
+                value={startsLocal}
+                onChange={(e) => {
+                  const next = e.target.value
+                  setStartsLocal(next)
+                  if (selectedTemplate?.duration_minutes) {
+                    setEndsLocal(addLocalMinutes(next, selectedTemplate.duration_minutes))
+                  }
+                }}
+              />
             </Field>
             <Field label="Окончание">
               <TelegramInput type="datetime-local" value={endsLocal} onChange={(e) => setEndsLocal(e.target.value)} />
@@ -1254,6 +1413,48 @@ function EventEditor({
               ))}
             </TelegramSelect>
           </Field>
+
+          <div className="admin-weather-card">
+            {!startsLocal || !selectedVenue ? (
+              <span>Для прогноза выберите дату, время и площадку.</span>
+            ) : selectedVenue.latitude === null || selectedVenue.longitude === null ? (
+              <span>У площадки нет координат — прогноз недоступен.</span>
+            ) : weather.status === 'loading' ? (
+              <span>Загружаю прогноз…</span>
+            ) : weather.status === 'error' ? (
+              <span>Прогноз не загрузился: {weather.error}</span>
+            ) : weather.status === 'ready' && weather.data.available ? (
+              <>
+                <strong>
+                  {weather.data.forecast.temperature_c === null
+                    ? 'Погода'
+                    : `${Math.round(weather.data.forecast.temperature_c)} °C`}
+                  {weather.data.forecast.description
+                    ? ` · ${weather.data.forecast.description}`
+                    : ''}
+                </strong>
+                <span>
+                  {weather.data.forecast.precipitation_probability_pct === null
+                    ? 'Осадки: нет данных'
+                    : `Осадки: ${weather.data.forecast.precipitation_probability_pct}%`}
+                  {weather.data.forecast.wind_speed_mps === null
+                    ? ''
+                    : ` · ветер ${weather.data.forecast.wind_speed_mps.toFixed(1)} м/с`}
+                </span>
+                <span>
+                  Прогноз на {dateTimeLabel(weather.data.forecast.forecast_at)}
+                </span>
+              </>
+            ) : weather.status === 'ready' && !weather.data.available ? (
+              <span>
+                {weather.data.reason === 'out_of_range'
+                  ? 'Прогноз появится ближе к дате мероприятия.'
+                  : 'Прогноз пока недоступен.'}
+              </span>
+            ) : (
+              <span>Прогноз появится после выбора даты и площадки.</span>
+            )}
+          </div>
 
           <CheckField label="Опубликовано" checked={published} onChange={setPublished} />
           <CheckField label="Отменено" checked={cancelled} onChange={setCancelled} />
@@ -1727,6 +1928,9 @@ function SchedulePage({
                 description={[
                   event.event_type === 'party' ? 'Вечеринка' : 'Опен',
                   catalog.venues.find((venue) => venue.id === event.venue_id)?.name,
+                  `L ${event.leader_going_count} · F ${event.follower_going_count}${
+                    event.other_going_count ? ` · +${event.other_going_count}` : ''
+                  }`,
                 ].filter(Boolean).join(' · ') || undefined}
                 after={<span className="menu-chevron">›</span>}
                 onClick={() => onEditEvent(event)}

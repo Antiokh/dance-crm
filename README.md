@@ -29,6 +29,12 @@ DanceApp uses separate infrastructure layers:
 
 Schema export and generated DB commits must not be treated as migration source.
 
+
+## Feature notes
+
+- Event templates, weather, social publication and RSVP delivery: `docs/EVENT_ANNOUNCEMENTS.md`.
+- Reusable private social-publishing module contract: `modules/social-publishing/README.md`.
+
 ## Legacy baseline
 
 DanceApp predates this repository. Historical migrations before the Dancers rebuild do not reconstruct the original legacy schema from an empty database.
