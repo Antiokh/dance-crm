@@ -971,13 +971,11 @@ async function publishMake(
   context: PublicationContext,
   copy: RenderedCopy,
 ): Promise<PublishResult> {
-  const settings = record(destination.settings)
   const destinationWebhook = optionalEnv(
     `MAKE_${envKeySegment(destination.key)}_WEBHOOK_URL`,
   )
   const webhookUrl =
-    optionalText(settings.webhook_url)
-    ?? destinationWebhook
+    destinationWebhook
     ?? optionalEnv('MAKE_SOCIAL_PUBLISHING_WEBHOOK_URL')
     ?? optionalEnv('MAKE_SOCIAL_WEBHOOK_URL')
 
