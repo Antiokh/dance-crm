@@ -3,7 +3,7 @@
 -- Schema:   public
 -- Entity:   tables
 -- Mode:     table_bundle
--- Updated:  2026-09-27T01:12:03.788Z
+-- Updated:  2026-09-27T01:21:06.852Z
 
 -- table: bookings
 
@@ -32,6 +32,7 @@ CREATE INDEX bookings_slot_status_idx ON public.bookings USING btree (slot_id, s
 CREATE INDEX bookings_dancer_booked_idx ON public.bookings USING btree (dancer_id, booked_at DESC);
 CREATE INDEX bookings_dance_role_idx ON public.bookings USING btree (slot_id, dance_role_id, status);
 CREATE INDEX bookings_dance_role_id_idx ON public.bookings USING btree (dance_role_id);
+CREATE TRIGGER bookings_refresh_class_slot_role_counts AFTER INSERT OR DELETE OR UPDATE ON public.bookings FOR EACH ROW EXECUTE FUNCTION private.refresh_class_slot_role_counts();
 CREATE TRIGGER bookings_touch_updated_at BEFORE UPDATE ON public.bookings FOR EACH ROW EXECUTE FUNCTION private.touch_updated_at();
 ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY;
 CREATE POLICY bookings_select ON public.bookings FOR SELECT TO authenticated USING (((dancer_id = private.current_dancer_id()) OR private.can_operate_slot(slot_id)));
@@ -131,11 +132,15 @@ CREATE TABLE public.class_slots (
   cancellation_reason text,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  leader_booked_count integer NOT NULL DEFAULT 0,
+  follower_booked_count integer NOT NULL DEFAULT 0,
   CONSTRAINT class_slots_capacity_override_check CHECK (capacity_override IS NULL OR capacity_override > 0),
   CONSTRAINT class_slots_check CHECK (ends_at > starts_at),
   CONSTRAINT class_slots_check1 CHECK (source <> 'schedule'::class_slot_source OR schedule_id IS NOT NULL AND occurrence_date IS NOT NULL),
   CONSTRAINT class_slots_check2 CHECK (status <> 'cancelled'::class_slot_status OR cancelled_at IS NOT NULL),
+  CONSTRAINT class_slots_follower_booked_count_nonnegative CHECK (follower_booked_count >= 0),
   CONSTRAINT class_slots_group_id_fkey FOREIGN KEY (group_id) REFERENCES dance_group(id) ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT class_slots_leader_booked_count_nonnegative CHECK (leader_booked_count >= 0),
   CONSTRAINT class_slots_pkey PRIMARY KEY (id),
   CONSTRAINT class_slots_schedule_id_fkey FOREIGN KEY (schedule_id) REFERENCES class_schedules(id) ON UPDATE CASCADE ON DELETE SET NULL,
   CONSTRAINT class_slots_venue_id_fkey FOREIGN KEY (venue_id) REFERENCES venues(id) ON UPDATE CASCADE ON DELETE SET NULL
