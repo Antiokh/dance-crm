@@ -672,11 +672,16 @@ export function eventDurationMinutes(startsLocal: string, endsLocal: string) {
 
 export function addLocalMinutes(value: string, minutes: number | null) {
   if (!value || !minutes || minutes <= 0) return ''
-  const startsAt = localInputToIso(value)
-  if (!startsAt) return ''
-  return isoToLocalInput(
-    new Date(new Date(startsAt).getTime() + minutes * 60_000).toISOString(),
-  )
+
+  try {
+    const startsAt = localInputToIso(value)
+    if (!startsAt) return ''
+    return isoToLocalInput(
+      new Date(new Date(startsAt).getTime() + minutes * 60_000).toISOString(),
+    )
+  } catch {
+    return ''
+  }
 }
 
 export async function loadAdminEventWeather(
