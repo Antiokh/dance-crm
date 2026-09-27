@@ -59,14 +59,22 @@ They remain below Telegram's start parameter size limit for UUID event IDs.
 
 ## Social delivery
 
-Publishing or materially updating a published event creates an immutable event publication and durable jobs:
+The CRM remains in the exposed `public` schema and continues to rely on RLS. Social publishing is different: its implementation state lives in a non-exposed `social` schema because workers operate with system/service privileges and provider/reconciliation state must never become part of the Data API surface.
+
+Domain changes only enqueue durable intent:
 
 ```text
-dance_events
-  -> event_social_publications
-  -> social_publication_jobs
+public.dance_events / public.event_attendance
+  -> public.social_commands
+  -> social-command-worker
+  -> social.publications
+  -> social.delivery_jobs
   -> social-publish-dispatch
 ```
+
+`public.social_commands` is the security boundary. The public enqueue function is `SECURITY INVOKER`; browser/domain code never writes `social.*` directly. The command worker is the privileged system boundary that materializes private publications and delivery jobs.
+
+The private publication table references CRM sources generically with `source_type`, `source_id`, and an operation/version snapshot. It has no foreign key to `dance_events`, so the publisher can later be extracted as a reusable module.
 
 Publishers:
 
@@ -147,25 +155,30 @@ The RPC rejects common secret fields such as tokens, passwords and webhook URLs.
 
 ## Worker scheduling
 
-The migration creates a per-environment random worker secret in Supabase Vault and installs a once-per-minute cron job.
+The migration creates one per-environment random worker secret in Supabase Vault and installs two once-per-minute cron jobs:
 
-The cron is deliberately inert until that environment's own Edge Function URL is configured. This prevents a preview/branch database from accidentally calling production.
+1. `social-command-worker` claims `public.social_commands` and materializes private publisher state;
+2. `social-publish-dispatch` claims `social.delivery_jobs` through service-only RPCs and talks to providers.
 
-After deploying `social-publish-dispatch`, configure:
+Both crons are deliberately inert until that environment's own Edge Function URLs are configured. This prevents a preview/branch database from accidentally calling production.
+
+After deploying both functions, configure:
 
 ```sql
-select public.admin_configure_social_dispatch(
+select public.admin_configure_social_workers(
+  'https://<project-ref>.supabase.co/functions/v1/social-command-worker',
   'https://<project-ref>.supabase.co/functions/v1/social-publish-dispatch',
   true
 );
 ```
 
-The database sends the Vault secret as `x-dance-social-secret`. The function compares it in constant time before claiming any jobs.
+The database sends the Vault-managed worker secret as `x-dance-social-secret`. Both functions compare it in constant time before claiming work.
 
 ## Delivery safety
 
-The queue provides:
+The two-stage queue provides:
 
+- an RLS-protected public command boundary separated from the private delivery queue;
 - idempotency keys;
 - leases and lease expiry recovery;
 - retry/dead states;
@@ -180,7 +193,7 @@ Telegram message edits are safe to retry. New Telegram posts, Threads final publ
 
 ## Diagnostics
 
-Administrators can inspect destination state, dispatch configuration and the latest publication jobs with:
+Administrators can inspect worker configuration, command state, destination state and the latest private publication jobs with:
 
 ```sql
 select public.admin_get_social_delivery_status(null);
