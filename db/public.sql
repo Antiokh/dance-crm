@@ -3,7 +3,7 @@
 -- Schema:   public
 -- Entity:   tables
 -- Mode:     table_bundle
--- Updated:  2026-09-27T00:41:03.116Z
+-- Updated:  2026-09-27T00:51:05.430Z
 
 -- table: bookings
 
@@ -395,6 +395,22 @@ CREATE INDEX debug_events_created_at_idx ON public.debug_events USING btree (cre
 CREATE INDEX debug_events_source_idx ON public.debug_events USING btree (source);
 ALTER TABLE public.debug_events ENABLE ROW LEVEL SECURITY;
 CREATE POLICY debug_events_service_only ON public.debug_events TO service_role USING (true) WITH CHECK (true);
+
+-- table: event_attendance
+
+CREATE TABLE public.event_attendance (
+  event_id uuid NOT NULL,
+  dancer_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT event_attendance_dancer_id_fkey FOREIGN KEY (dancer_id) REFERENCES dancer(id) ON DELETE CASCADE,
+  CONSTRAINT event_attendance_event_id_fkey FOREIGN KEY (event_id) REFERENCES dance_events(id) ON DELETE CASCADE,
+  CONSTRAINT event_attendance_pkey PRIMARY KEY (event_id, dancer_id)
+);
+CREATE INDEX event_attendance_dancer_idx ON public.event_attendance USING btree (dancer_id, event_id);
+CREATE TRIGGER event_attendance_touch_updated_at BEFORE UPDATE ON public.event_attendance FOR EACH ROW EXECUTE FUNCTION private.touch_updated_at();
+ALTER TABLE public.event_attendance ENABLE ROW LEVEL SECURITY;
+CREATE POLICY event_attendance_select ON public.event_attendance FOR SELECT TO authenticated USING (((dancer_id = private.current_dancer_id()) OR private.has_app_role('administrator'::app_role)));
 
 -- table: group_memberships
 
