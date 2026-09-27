@@ -2,15 +2,18 @@
 
 ## Database
 
-Apply the canonical migrations in timestamp order:
+The reusable core is:
 
-1. `supabase/migrations/20260927133000_social_command_queue.sql`
-2. `supabase/migrations/20260927134000_social_publishing_core.sql`
-3. consumer adapter, for Dance CRM: `supabase/migrations/20260927134500_event_social_adapter.sql`
-4. `supabase/migrations/20260927141000_social_dispatch_worker.sql`
-5. `supabase/migrations/20260927142000_social_admin_ops.sql`
+1. `supabase/migrations/20260927133000_social_command_queue.sql` — durable command table and service worker lease/retry primitives;
+2. `supabase/migrations/20260927134000_social_publishing_core.sql` — non-exposed `social` schema, destinations, publications, delivery queue and service-only delivery RPCs;
+3. `supabase/migrations/20260927141000_social_dispatch_worker.sql` — Vault/cron worker infrastructure and service-only worker configuration.
 
-The first migration creates the exposed durable command boundary. The second creates the non-exposed reusable `social` schema and delivery state without any Dance CRM table references. The consumer adapter owns event snapshot materialization and triggers. The last two install worker scheduling and safe admin operations.
+Dance CRM then adds consumer-specific migrations:
+
+4. `supabase/migrations/20260927134500_event_social_adapter.sql` — authenticated enqueue policy/API, event snapshots, triggers and command processor;
+5. `supabase/migrations/20260927142000_social_admin_ops.sql` — Dance administrator wrappers and diagnostics.
+
+The reusable core contains no Dance CRM domain-table or app-role dependency. A different consumer supplies its own enqueue policy and `social_process_command` adapter.
 
 The target Supabase API configuration must **not** expose the `social` schema. Dance CRM currently exposes only `public` and `graphql_public`.
 
@@ -49,12 +52,15 @@ Destinations are installed disabled.
 After deploying both Edge Functions, configure the current environment:
 
 ```sql
-select public.admin_configure_social_workers(
+select public.social_configure_workers(
   'https://<project-ref>.supabase.co/functions/v1/social-command-worker',
   'https://<project-ref>.supabase.co/functions/v1/social-publish-dispatch',
-  true
+  true,
+  null
 );
 ```
+
+The reusable configuration RPC is executable only by `service_role`. Dance CRM also exposes an administrator wrapper, `admin_configure_social_workers(...)`, which performs the app-role check and calls this service boundary.
 
 Then enable only destinations whose provider credentials and settings have been verified.
 
