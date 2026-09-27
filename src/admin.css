@@ -1,0 +1,250 @@
+
+.admin-page {
+  min-height: 100%;
+}
+
+.admin-page-actions,
+.admin-tabs-with-action {
+  display: flex;
+  align-items: center;
+  gap: var(--app-panel-gap);
+  padding: var(--app-page-padding-top)
+    max(var(--app-page-padding-x), var(--app-safe-right))
+    var(--app-panel-gap)
+    max(var(--app-page-padding-x), var(--app-safe-left));
+}
+
+.admin-page-actions {
+  justify-content: space-between;
+}
+
+.admin-tabs-with-action {
+  align-items: flex-start;
+}
+
+.admin-local-tabs {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.admin-search {
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: var(--app-control-height);
+  border: 1px solid var(--app-separator);
+  border-radius: var(--app-control-radius);
+  padding: 0 var(--app-panel-padding-x);
+  outline: none;
+  background: var(--app-section-bg);
+  color: var(--app-text);
+  font: inherit;
+}
+
+.admin-search::placeholder {
+  color: var(--app-hint);
+}
+
+.admin-search:focus {
+  border-color: var(--app-button);
+}
+
+.admin-list-cell {
+  width: 100%;
+  text-align: left;
+}
+
+.admin-sheet {
+  max-height: calc(
+    var(--tg-viewport-stable-height, 100dvh)
+    - var(--app-safe-top)
+  );
+}
+
+.admin-sheet form {
+  display: grid;
+  gap: var(--app-panel-gap);
+}
+
+.admin-form-card {
+  margin-top: 0;
+}
+
+.admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 11px 0;
+  color: var(--app-section-header);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.admin-field > input,
+.admin-field > select,
+.admin-field > textarea {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid var(--app-separator);
+  border-radius: 10px;
+  padding: 12px;
+  outline: none;
+  background: var(--app-bg);
+  color: var(--app-text);
+  font: inherit;
+  font-weight: 400;
+}
+
+.admin-field > textarea {
+  resize: vertical;
+  min-height: 82px;
+}
+
+.admin-field > input:focus,
+.admin-field > select:focus,
+.admin-field > textarea:focus {
+  border-color: var(--app-button);
+}
+
+.admin-field > input:disabled {
+  opacity: .55;
+}
+
+.admin-check {
+  display: flex;
+  align-items: center;
+  gap: var(--app-panel-gap);
+  min-height: 34px;
+  color: var(--app-text);
+  font-size: 14px;
+}
+
+.admin-check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.admin-inline-note,
+.admin-generated-preview {
+  border: 1px solid var(--app-separator);
+  border-radius: var(--app-control-radius);
+  padding: var(--app-panel-padding-y);
+  background: var(--app-secondary-bg);
+  color: var(--app-subtitle);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.admin-generated-preview {
+  display: grid;
+  gap: 3px;
+  margin: var(--app-panel-gap) 0;
+}
+
+.admin-generated-preview span {
+  color: var(--app-section-header);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.admin-generated-preview strong {
+  color: var(--app-text);
+  font-size: 14px;
+}
+
+.admin-editor-heading {
+  display: grid;
+  gap: 2px;
+  padding: 4px 4px 0;
+}
+
+.admin-editor-heading strong {
+  color: var(--app-text);
+  font-size: 16px;
+}
+
+.admin-editor-heading span {
+  color: var(--app-subtitle);
+  font-size: 11px;
+}
+
+.admin-style-card {
+  margin-top: 0;
+}
+
+.admin-style-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--app-panel-gap);
+  margin-bottom: var(--app-panel-gap);
+}
+
+.admin-style-title strong {
+  font-size: 16px;
+}
+
+.admin-style-title span {
+  color: var(--app-subtitle);
+  font-size: 11px;
+}
+
+.admin-role-profile {
+  padding: 10px 0;
+  border-top: 1px solid var(--app-separator);
+}
+
+.admin-role-profile:first-of-type {
+  border-top: 0;
+}
+
+.admin-role-profile-fields {
+  display: grid;
+  gap: 4px;
+  padding: 6px 0 0 28px;
+}
+
+.admin-profile-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+
+.admin-competition-block {
+  margin-top: 2px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--app-separator);
+}
+
+.admin-form-error {
+  margin: 0;
+}
+
+.admin-save-button {
+  margin-bottom: calc(8px + var(--app-safe-bottom));
+}
+
+@media (max-width: 520px) {
+  .admin-page-actions,
+  .admin-tabs-with-action {
+    padding-left: max(8px, var(--app-safe-left));
+    padding-right: max(8px, var(--app-safe-right));
+  }
+
+  .admin-tabs-with-action {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-tabs-with-action > button {
+    align-self: flex-end;
+  }
+
+  .admin-role-profile-fields {
+    padding-left: 12px;
+  }
+}
