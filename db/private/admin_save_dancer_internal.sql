@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   private
 -- Function: admin_save_dancer_internal
--- Updated:  2026-09-27T08:51:04.182Z
+-- Updated:  2026-09-27T09:41:01.976Z
 
 -- overload
 -- language: plpgsql
@@ -72,7 +72,10 @@ begin
     end if;
 
     update public.dancer
-    set telegram_id=v_telegram_id,
+    set telegram_id=case
+          when auth_user_id is null then v_telegram_id
+          else telegram_id
+        end,
         first_name=nullif(btrim(p_payload->>'first_name'),''),
         last_name=nullif(btrim(p_payload->>'last_name'),''),
         telegram_username=nullif(btrim(p_payload->>'telegram_username'),''),
