@@ -14,6 +14,7 @@ export type HomeStyle = {
   title_en: string | null
   title_ru: string | null
   title_sr: string | null
+  is_partner_dance: boolean
 }
 
 export type DanceEvent = {
@@ -40,6 +41,10 @@ export type GroupClass = {
   venue: HomeVenue | null
   booking_status: 'booked' | 'waitlisted' | null
   booking_id: string | null
+  role_balance: {
+    leader: number
+    follower: number
+  } | null
 }
 
 export type AttentionItem = {
@@ -92,6 +97,7 @@ function style(value: unknown): HomeStyle | null {
     title_en: nullableString(source.title_en),
     title_ru: nullableString(source.title_ru),
     title_sr: nullableString(source.title_sr),
+    is_partner_dance: source.is_partner_dance === true,
   }
 }
 
@@ -160,6 +166,25 @@ function parseClass(value: unknown): GroupClass | null {
     venue: venue(source.venue),
     booking_status: bookingStatus,
     booking_id: typeof source.booking_id === 'string' ? source.booking_id : null,
+    role_balance: (() => {
+      const balance = object(source.role_balance)
+      if (!balance) return null
+
+      const leader =
+        typeof balance.leader === 'number'
+          ? balance.leader
+          : Number(balance.leader)
+      const follower =
+        typeof balance.follower === 'number'
+          ? balance.follower
+          : Number(balance.follower)
+
+      if (!Number.isFinite(leader) || !Number.isFinite(follower)) {
+        return null
+      }
+
+      return { leader, follower }
+    })(),
   }
 }
 
