@@ -14,6 +14,23 @@ export type DancerSummary = {
   primary_role: number | null
 }
 
+export type DanceStyleLevel = {
+  code: string
+  title_en: string | null
+  title_ru: string | null
+  title_sr: string | null
+  rank_order: number
+}
+
+export type DanceStyleProfile = {
+  id: string
+  is_leader: boolean
+  is_trainer: boolean
+  is_default: boolean
+  level_id: number | null
+  level: DanceStyleLevel | null
+}
+
 export type DanceStyle = {
   id: number
   title_en: string | null
@@ -22,6 +39,8 @@ export type DanceStyle = {
   is_partner_dance: boolean
   main_role: number | null
   role_ids: number[]
+  is_trainer: boolean
+  profiles: DanceStyleProfile[]
 }
 
 export type DancerContext = {
@@ -48,6 +67,39 @@ function parseRole(value: unknown): AppRole | null {
     : null
 }
 
+function parseStyleLevel(value: unknown): DanceStyleLevel | null {
+  const source = record(value)
+  if (!source || typeof source.code !== 'string') return null
+
+  return {
+    code: source.code,
+    title_en: nullableString(source.title_en),
+    title_ru: nullableString(source.title_ru),
+    title_sr: nullableString(source.title_sr),
+    rank_order:
+      typeof source.rank_order === 'number'
+        ? source.rank_order
+        : 0,
+  }
+}
+
+function parseStyleProfile(value: unknown): DanceStyleProfile | null {
+  const source = record(value)
+  if (!source || typeof source.id !== 'string') return null
+
+  return {
+    id: source.id,
+    is_leader: source.is_leader === true,
+    is_trainer: source.is_trainer === true,
+    is_default: source.is_default === true,
+    level_id:
+      typeof source.level_id === 'number'
+        ? source.level_id
+        : null,
+    level: parseStyleLevel(source.level),
+  }
+}
+
 function parseStyle(value: unknown): DanceStyle | null {
   const source = record(value)
   if (!source || typeof source.id !== 'number') return null
@@ -62,6 +114,12 @@ function parseStyle(value: unknown): DanceStyle | null {
       typeof source.main_role === 'number' ? source.main_role : null,
     role_ids: Array.isArray(source.role_ids)
       ? source.role_ids.filter((role): role is number => typeof role === 'number')
+      : [],
+    is_trainer: source.is_trainer === true,
+    profiles: Array.isArray(source.profiles)
+      ? source.profiles
+          .map(parseStyleProfile)
+          .filter((profile): profile is DanceStyleProfile => profile !== null)
       : [],
   }
 }
