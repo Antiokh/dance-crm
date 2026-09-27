@@ -174,12 +174,12 @@ async function claimJobs(): Promise<ClaimedJob[]> {
 
 async function loadDestination(key: string): Promise<Destination> {
   const { data, error } = await supabaseService()
-    .from('social_destinations')
-    .select('key, platform, publisher, enabled, settings')
-    .eq('key', key)
-    .single()
+    .rpc('social_get_destination', { p_key: key })
 
   if (error) throw error
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new TerminalPublishError(`Social destination ${key} was not found`)
+  }
   return data as Destination
 }
 
