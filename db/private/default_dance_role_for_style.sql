@@ -2,56 +2,32 @@
 -- Source: live Supabase database function versioning
 -- Schema:   private
 -- Function: default_dance_role_for_style
--- Updated:  2026-09-27T06:51:01.583Z
+-- Updated:  2026-09-27T07:21:01.634Z
 
 -- overload
--- language: plpgsql
+-- language: sql
 -- args: p_dancer_id uuid, p_style_id smallint
 -- returns: smallint
 
 CREATE OR REPLACE FUNCTION private.default_dance_role_for_style(p_dancer_id uuid, p_style_id smallint)
  RETURNS smallint
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
+ LANGUAGE sql
+ STABLE
  SET search_path TO ''
 AS $function$
-declare
-  v_table_name text;
-  v_role smallint;
-begin
-  select s.table_name
-  into v_table_name
-  from public.l_dance_style s
-  where s.id = p_style_id;
-
-  if v_table_name is not null
-    and v_table_name ~ '^dancer_[a-z0-9_]+$'
-  then
-    execute format(
-      'select main_role from public.%I where id = $1',
-      v_table_name
+  select coalesce(
+    (
+      select case when p.is_leader then 1::smallint else 2::smallint end
+      from public.dancer_style_profile p
+      where p.dancer_id = p_dancer_id
+        and p.style_id = p_style_id
+      order by p.is_default desc, p.created_at, p.id
+      limit 1
+    ),
+    (
+      select d.primary_role
+      from public.dancer d
+      where d.id = p_dancer_id
     )
-    into v_role
-    using p_dancer_id;
-  end if;
-
-  if v_role is null then
-    select dsr.role_id
-    into v_role
-    from public.dancer_style_roles dsr
-    where dsr.dancer_id = p_dancer_id
-      and dsr.style_id = p_style_id
-    order by dsr.role_id
-    limit 1;
-  end if;
-
-  if v_role is null then
-    select d.primary_role
-    into v_role
-    from public.dancer d
-    where d.id = p_dancer_id;
-  end if;
-
-  return v_role;
-end;
+  )
 $function$
