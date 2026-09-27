@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   private
 -- Function: default_dance_role_for_style
--- Updated:  2026-09-26T20:33:33.410Z
+-- Updated:  2026-09-27T06:51:01.583Z
 
 -- overload
 -- language: plpgsql
@@ -33,6 +33,16 @@ begin
     )
     into v_role
     using p_dancer_id;
+  end if;
+
+  if v_role is null then
+    select dsr.role_id
+    into v_role
+    from public.dancer_style_roles dsr
+    where dsr.dancer_id = p_dancer_id
+      and dsr.style_id = p_style_id
+    order by dsr.role_id
+    limit 1;
   end if;
 
   if v_role is null then
