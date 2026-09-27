@@ -738,12 +738,12 @@ function DancerHome({
                       pending={pending}
                       danger={attend.status === 'waitlisted'}
                       roleLabel={
-                        availableRoleIds(today.item).length > 1
+                        availableRoleIds(item).length > 1
                           ? roleShortLabel(attend.roleId)
                           : null
                       }
                       onRoleChange={() => {
-                        void cycleClassRole(today.item)
+                        void cycleClassRole(item)
                       }}
                       onChange={(checked) => {
                         void toggleClass(item, checked)
