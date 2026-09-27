@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
     url.searchParams.set('units', 'metric')
     url.searchParams.set('lang', 'ru')
 
-    const response = await fetch(url)
+    const response = await fetch(url, { signal: AbortSignal.timeout(8000) })
     const payload = await response.json().catch(() => ({})) as ForecastResponse
 
     if (!response.ok || !Array.isArray(payload.list)) {
