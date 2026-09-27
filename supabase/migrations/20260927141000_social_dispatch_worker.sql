@@ -66,10 +66,11 @@ revoke all on function public.social_get_worker_secret()
 grant execute on function public.social_get_worker_secret()
   to service_role;
 
-create or replace function public.admin_configure_social_workers(
+create or replace function public.social_configure_workers(
   p_command_url text,
   p_dispatch_url text,
-  p_enabled boolean default true
+  p_enabled boolean default true,
+  p_updated_by uuid default null
 )
 returns jsonb
 language plpgsql
@@ -80,11 +81,6 @@ declare
   v_command_url text := nullif(btrim(p_command_url), '');
   v_dispatch_url text := nullif(btrim(p_dispatch_url), '');
 begin
-  if not private.has_app_role('administrator'::public.app_role) then
-    raise exception 'administrator role required'
-      using errcode = '42501';
-  end if;
-
   if p_enabled and (v_command_url is null or v_dispatch_url is null) then
     raise exception 'both social worker URLs are required when enabling'
       using errcode = '22023';
@@ -114,7 +110,7 @@ begin
   set command_url = v_command_url,
       dispatch_url = v_dispatch_url,
       enabled = coalesce(p_enabled, false),
-      updated_by = private.current_dancer_id()
+      updated_by = p_updated_by
   where singleton;
 
   return jsonb_build_object(
@@ -125,12 +121,12 @@ begin
 end;
 $function$;
 
-revoke all on function public.admin_configure_social_workers(
-  text, text, boolean
-) from public, anon;
-grant execute on function public.admin_configure_social_workers(
-  text, text, boolean
-) to authenticated;
+revoke all on function public.social_configure_workers(
+  text, text, boolean, uuid
+) from public, anon, authenticated;
+grant execute on function public.social_configure_workers(
+  text, text, boolean, uuid
+) to service_role;
 
 create or replace function private.social_worker_tick(
   p_worker_kind text
