@@ -502,6 +502,7 @@ begin
       old.event_type is distinct from new.event_type
       or old.title is distinct from new.title
       or old.description is distinct from new.description
+      or old.announcement_image_url is distinct from new.announcement_image_url
       or old.starts_at is distinct from new.starts_at
       or old.ends_at is distinct from new.ends_at
       or old.venue_id is distinct from new.venue_id
@@ -533,6 +534,7 @@ after insert or update of
   event_type,
   title,
   description,
+  announcement_image_url,
   starts_at,
   ends_at,
   venue_id,
@@ -853,8 +855,16 @@ begin
     and j.lease_expires_at <= v_now;
 
   return query
-  with candidates as (
-    select j.id
+  with eligible as (
+    select
+      j.id,
+      j.priority,
+      j.available_at,
+      j.created_at,
+      row_number() over (
+        partition by coalesce(d.rate_limit_group, 'destination:' || d.key)
+        order by j.priority desc, j.available_at, j.created_at
+      ) as gate_rank
     from public.social_publication_jobs j
     join public.social_destinations d
       on d.key = j.destination_key
@@ -883,7 +893,13 @@ begin
           )
         )
       )
-    order by j.priority desc, j.available_at, j.created_at
+  ),
+  candidates as (
+    select j.id
+    from public.social_publication_jobs j
+    join eligible e on e.id = j.id
+    where e.gate_rank = 1
+    order by e.priority desc, e.available_at, e.created_at
     for update of j skip locked
     limit v_limit
   ),
