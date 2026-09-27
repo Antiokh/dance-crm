@@ -449,6 +449,7 @@ function DancerEditor({
               <input
                 inputMode="numeric"
                 value={telegramId}
+                disabled={dancer?.auth_linked === true}
                 onChange={(event) => setTelegramId(event.target.value)}
                 placeholder="Необязательно"
               />
