@@ -357,6 +357,9 @@ function DancerHome({
 }) {
   const [eventsExpanded, setEventsExpanded] = useState(false)
   const [eventOverrides, setEventOverrides] = useState<Record<string, boolean>>({})
+  const [eventBalanceOverrides, setEventBalanceOverrides] = useState<
+    Record<string, NonNullable<DanceEvent['role_balance']>>
+  >({})
   const [classOverrides, setClassOverrides] = useState<Record<string, ClassAttendState>>({})
   const [pendingActions, setPendingActions] = useState<Record<string, boolean>>({})
   const [actionError, setActionError] = useState<string | null>(null)
@@ -400,6 +403,9 @@ function DancerHome({
   const eventAttending = (event: DanceEvent) =>
     eventOverrides[event.id] ?? event.attending
 
+  const eventRoleBalance = (event: DanceEvent) =>
+    eventBalanceOverrides[event.id] ?? event.role_balance
+
   const styleProfile = (item: GroupClass) =>
     dancerStyles.find((style) => style.id === item.style.id) ?? null
 
@@ -440,7 +446,14 @@ function DancerHome({
 
     try {
       const actual = await setEventAttending(event.id, attending)
-      setEventOverrides((current) => ({ ...current, [event.id]: actual }))
+      setEventOverrides((current) => ({
+        ...current,
+        [event.id]: actual.attending,
+      }))
+      setEventBalanceOverrides((current) => ({
+        ...current,
+        [event.id]: actual.roleBalance,
+      }))
     } catch (error) {
       setEventOverrides((current) => ({ ...current, [event.id]: previous }))
       setActionError(error instanceof Error ? error.message : String(error))
@@ -602,7 +615,7 @@ function DancerHome({
                         value={today.event.starts_at}
                         balance={
                           today.event.style?.is_partner_dance
-                            ? today.event.role_balance
+                            ? eventRoleBalance(today.event)
                             : null
                         }
                       />
@@ -696,7 +709,7 @@ function DancerHome({
                       value={event.starts_at}
                       balance={
                         event.style?.is_partner_dance
-                          ? event.role_balance
+                          ? eventRoleBalance(event)
                           : null
                       }
                     />
