@@ -483,11 +483,60 @@ export function isoToLocalInput(value: string | null) {
   return `${map.get('year')}-${map.get('month')}-${map.get('day')}T${map.get('hour')}:${map.get('minute')}`
 }
 
+function zonedOffsetMs(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date)
+  const values = new Map(parts.map((part) => [part.type, part.value]))
+  const asUtc = Date.UTC(
+    Number(values.get('year')),
+    Number(values.get('month')) - 1,
+    Number(values.get('day')),
+    Number(values.get('hour')),
+    Number(values.get('minute')),
+    Number(values.get('second')),
+  )
+  return asUtc - date.getTime()
+}
+
 function localInputToIso(value: string) {
   if (!value) return null
-  // Admin UI is explicitly Europe/Belgrade. Browsers running in that timezone
-  // parse datetime-local correctly; this fallback keeps the input contract simple.
-  return new Date(value).toISOString()
+
+  const match = /^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2})$/.exec(value)
+  if (!match) throw new Error('Некорректная дата и время')
+
+  const [, year, month, day, hour, minute] = match
+  const localAsUtc = Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+  )
+
+  let offset = zonedOffsetMs(
+    new Date(localAsUtc),
+    'Europe/Belgrade',
+  )
+  let target = localAsUtc - offset
+  const correctedOffset = zonedOffsetMs(
+    new Date(target),
+    'Europe/Belgrade',
+  )
+
+  if (correctedOffset !== offset) {
+    offset = correctedOffset
+    target = localAsUtc - offset
+  }
+
+  return new Date(target).toISOString()
 }
 
 export async function saveAdminEvent(input: AdminEventInput) {
