@@ -57,3 +57,8 @@ entrypoint = "./functions/whoami/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/event-weather/index.ts"
+
+[functions.social-publish-dispatch]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/social-publish-dispatch/index.ts"
