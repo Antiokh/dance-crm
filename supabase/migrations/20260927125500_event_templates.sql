@@ -1,12 +1,16 @@
 -- Reusable templates for irregular dance events and an explicit admin access probe
 -- used by authenticated Edge Functions.
 
+alter table public.dance_events
+  add column if not exists announcement_image_url text;
+
 create table if not exists public.event_templates (
   id uuid primary key default extensions.gen_random_uuid(),
   name text not null check (length(btrim(name)) > 0),
   event_type public.dance_event_type not null,
   title text not null check (length(btrim(title)) > 0),
   description text,
+  announcement_image_url text,
   duration_minutes integer,
   venue_id uuid references public.venues(id) on delete set null,
   style_id smallint references public.l_dance_style(id) on delete set null,
