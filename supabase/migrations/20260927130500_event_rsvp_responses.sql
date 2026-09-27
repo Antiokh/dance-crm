@@ -188,6 +188,9 @@ declare
   v_style_id smallint;
   v_is_partner boolean;
   v_role_id smallint;
+  v_existing_response public.event_rsvp_response;
+  v_existing_role_id smallint;
+  v_existing_cancelled_at timestamptz;
 begin
   if v_dancer_id is null then
     raise exception 'dancer profile not found' using errcode = 'P0002';
@@ -222,6 +225,20 @@ begin
     );
   else
     v_role_id := null;
+  end if;
+
+  select ea.response, ea.role_id, ea.cancelled_at
+  into v_existing_response, v_existing_role_id, v_existing_cancelled_at
+  from public.event_attendance ea
+  where ea.event_id = p_event_id
+    and ea.dancer_id = v_dancer_id;
+
+  if found
+    and v_existing_cancelled_at is null
+    and v_existing_response = p_response
+    and v_existing_role_id is not distinct from v_role_id
+  then
+    return public.get_my_event_rsvp(p_event_id);
   end if;
 
   insert into public.event_attendance (
