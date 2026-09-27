@@ -533,6 +533,11 @@ begin
     and (old.published or new.published)
   then
     v_type := 'cancelled';
+  elsif old.cancelled_at is not null
+    and new.cancelled_at is null
+    and new.published
+  then
+    v_type := 'updated';
   elsif not old.published and new.published
     and new.cancelled_at is null
   then
