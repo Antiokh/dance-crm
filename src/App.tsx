@@ -918,7 +918,7 @@ export default function App() {
   }, [auth.status])
 
   useEffect(() => {
-    if (auth.status !== 'authenticated' || view !== 'school' || school.status !== 'idle') {
+    if (auth.status !== 'authenticated' || view !== 'school') {
       return
     }
 
@@ -942,10 +942,10 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [auth.status, view, school.status])
+  }, [auth.status, view])
 
   useEffect(() => {
-    if (auth.status !== 'authenticated' || view !== 'profile' || profile.status !== 'idle') {
+    if (auth.status !== 'authenticated' || view !== 'profile') {
       return
     }
 
@@ -969,7 +969,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [auth.status, view, profile.status])
+  }, [auth.status, view])
 
   const showBottomNav = auth.status === 'authenticated' && !loading
 
