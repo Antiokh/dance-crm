@@ -2,6 +2,157 @@
 -- Domain triggers enqueue public commands. The system command worker materializes
 -- event snapshots/publications and delivery jobs through this adapter.
 
+-- Dance CRM public enqueue boundary.
+-- The reusable command table itself grants no browser access; this consumer adapter
+-- supplies caller permissions, RLS and the SECURITY INVOKER enqueue contract.
+
+grant insert on public.social_commands to authenticated;
+
+drop policy if exists social_commands_insert_authenticated
+  on public.social_commands;
+create policy social_commands_insert_authenticated
+on public.social_commands
+for insert
+to authenticated
+with check (
+  status = 'queued'
+  and attempt_count = 0
+  and max_attempts = 8
+  and priority between 0 and 1000
+  and available_at >= now() - interval '5 minutes'
+  and available_at <= now() + interval '5 minutes'
+  and lease_owner is null
+  and lease_expires_at is null
+  and processed_at is null
+  and last_error is null
+  and created_by = auth.uid()
+  and not (payload ?| array[
+    'token',
+    'access_token',
+    'bot_token',
+    'secret',
+    'password',
+    'webhook_url',
+    'authorization',
+    'api_key'
+  ])
+  and source_type = 'event'
+  and (
+    private.has_app_role('administrator'::public.app_role)
+    or (
+      command_type = 'social.rsvp_update'
+      and operation = 'rsvp_update'
+      and priority <= 200
+      and (payload - 'transaction_id') = '{}'::jsonb
+      and exists (
+        select 1
+        from public.event_attendance ea
+        join public.dance_events e
+          on e.id = ea.event_id
+        where ea.event_id = source_id
+          and ea.dancer_id = private.current_dancer_id()
+          and e.published
+          and e.cancelled_at is null
+          and coalesce(e.ends_at, e.starts_at) > now()
+      )
+    )
+  )
+);
+
+create or replace function public.enqueue_social_command(
+  p_command_type text,
+  p_source_type text,
+  p_source_id uuid,
+  p_operation text,
+  p_payload jsonb default '{}'::jsonb,
+  p_priority integer default 100
+)
+returns uuid
+language plpgsql
+security invoker
+set search_path = ''
+as $function$
+declare
+  v_id uuid := extensions.gen_random_uuid();
+  v_payload jsonb := coalesce(p_payload, '{}'::jsonb);
+begin
+  if p_command_type not in (
+    'social.publish',
+    'social.update',
+    'social.cancel',
+    'social.rsvp_update',
+    'social.unpublish'
+  ) then
+    raise exception 'unsupported social command type'
+      using errcode = '22023';
+  end if;
+
+  if p_source_type is null or btrim(p_source_type) = '' then
+    raise exception 'source type is required'
+      using errcode = '22023';
+  end if;
+
+  if p_source_id is null then
+    raise exception 'source id is required'
+      using errcode = '22023';
+  end if;
+
+  if p_operation is null or btrim(p_operation) = '' then
+    raise exception 'operation is required'
+      using errcode = '22023';
+  end if;
+
+  if jsonb_typeof(v_payload) <> 'object' then
+    raise exception 'social command payload must be a JSON object'
+      using errcode = '22023';
+  end if;
+
+  if v_payload ?| array[
+    'token',
+    'access_token',
+    'bot_token',
+    'secret',
+    'password',
+    'webhook_url',
+    'authorization',
+    'api_key'
+  ] then
+    raise exception 'provider secrets must not be placed in social commands'
+      using errcode = '22023';
+  end if;
+
+  insert into public.social_commands (
+    id,
+    command_type,
+    source_type,
+    source_id,
+    operation,
+    payload,
+    priority,
+    created_by
+  )
+  values (
+    v_id,
+    p_command_type,
+    p_source_type,
+    p_source_id,
+    p_operation,
+    v_payload,
+    least(greatest(coalesce(p_priority, 100), 0), 1000),
+    auth.uid()
+  );
+
+  return v_id;
+end;
+$function$;
+
+revoke all on function public.enqueue_social_command(
+  text, text, uuid, text, jsonb, integer
+) from public, anon;
+grant execute on function public.enqueue_social_command(
+  text, text, uuid, text, jsonb, integer
+) to authenticated, service_role;
+
 create or replace function private.event_social_payload(
   p_event_id uuid
 )
