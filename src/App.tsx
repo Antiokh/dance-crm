@@ -37,7 +37,7 @@ import {
   type SchoolCatalog,
 } from './lib/school'
 import { getTelegramUser, setTelegramVerticalSwipesEnabled } from './lib/telegram'
-import { getNativeTelegramUser, getTmaDiagnostics } from './lib/tma'
+import { getNativeTelegramUser } from './lib/tma'
 
 const initialAuth: AuthState = {
   status: 'preview',
@@ -52,7 +52,7 @@ const roleLabels: Record<AppRole, string> = {
   administrator: 'Администратор',
 }
 
-type RootView = 'events' | 'school' | 'profile'
+type RootView = 'activities' | 'info' | 'profile'
 type SchoolView = 'groups' | 'trainers' | 'venues' | 'styles'
 
 type AsyncState<T> =
@@ -613,13 +613,13 @@ function DancerHome({ state }: { state: FeedState }) {
   )
 }
 
-function SchoolPage({ state }: { state: SchoolState }) {
+function InfoPage({ state }: { state: SchoolState }) {
   const [view, setView] = useState<SchoolView>('groups')
 
   if (state.status === 'idle' || state.status === 'loading') {
     return (
       <section className="tgui-page">
-        <LoadingBlock text="Загружаю школу" />
+        <LoadingBlock text="Загружаю инфо" />
       </section>
     )
   }
@@ -627,7 +627,7 @@ function SchoolPage({ state }: { state: SchoolState }) {
   if (state.status === 'error') {
     return (
       <section className="tgui-page">
-        <Placeholder header="Не удалось загрузить школу" description={state.error} />
+        <Placeholder header="Не удалось загрузить инфо" description={state.error} />
       </section>
     )
   }
@@ -814,7 +814,7 @@ function ProfilePage({ state }: { state: ProfileState }) {
 }
 
 function NavIcon({ view }: { view: RootView }) {
-  if (view === 'events') {
+  if (view === 'activities') {
     return (
       <svg className="dancer-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z" />
@@ -822,10 +822,11 @@ function NavIcon({ view }: { view: RootView }) {
     )
   }
 
-  if (view === 'school') {
+  if (view === 'info') {
     return (
       <svg className="dancer-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="m3 10 9-5 9 5-9 5-9-5Zm3 3v5h12v-5M9 15v3M15 15v3" />
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 10v6M12 7h.01" />
       </svg>
     )
   }
@@ -839,9 +840,9 @@ function NavIcon({ view }: { view: RootView }) {
 }
 
 function viewTitle(view: RootView) {
-  if (view === 'school') return 'Школа'
+  if (view === 'info') return 'Инфо'
   if (view === 'profile') return 'Профиль'
-  return 'События'
+  return 'Активности'
 }
 
 export default function App() {
@@ -852,7 +853,7 @@ export default function App() {
 
   const [auth, setAuth] = useState<AuthState>(initialAuth)
   const [role] = useState<AppRole>('dancer')
-  const [view, setView] = useState<RootView>('events')
+  const [view, setView] = useState<RootView>('info')
   const [loading, setLoading] = useState(true)
   const [feed, setFeed] = useState<FeedState>({
     status: 'idle',
@@ -879,7 +880,11 @@ export default function App() {
 
     void authenticateTelegram()
       .then((next) => {
-        if (!cancelled) setAuth(next)
+        if (cancelled) return
+        setAuth(next)
+        if (next.status === 'authenticated') {
+          setView('activities')
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -918,9 +923,7 @@ export default function App() {
   }, [auth.status])
 
   useEffect(() => {
-    if (auth.status !== 'authenticated' || view !== 'school') {
-      return
-    }
+    if (view !== 'info') return
 
     let cancelled = false
     setSchool({ status: 'loading', data: null, error: null })
@@ -942,7 +945,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [auth.status, view])
+  }, [view])
 
   useEffect(() => {
     if (auth.status !== 'authenticated' || view !== 'profile') {
@@ -1010,7 +1013,6 @@ export default function App() {
     })
   }
 
-  const tma = getTmaDiagnostics()
   const buildLabel =
     __APP_COMMIT__ === 'local'
       ? 'local'
@@ -1027,50 +1029,12 @@ export default function App() {
   )
 
   const mainContent = () => {
-    if (loading) {
-      return (
-        <section className="tgui-page">
-          <Placeholder
-            header="Авторизация…"
-            description="Проверяем Telegram и создаём сессию DanceApp."
-          >
-            <Spinner size="m" />
-          </Placeholder>
-        </section>
-      )
+    if (view === 'info') {
+      return <InfoPage state={school} />
     }
 
-    if (auth.status === 'error') {
-      return (
-        <section className="tgui-page">
-          <Placeholder
-            header="Не удалось войти"
-            description={auth.error}
-          />
-          <Section className="tgui-section" header="Диагностика">
-            <Cell>Runtime: {tma.isTelegram ? 'Telegram' : 'browser'}</Cell>
-            <Cell>
-              TMA: {tma.initialized ? 'initialized' : tma.error || 'not initialized'}
-            </Cell>
-            <Cell>Build: {buildLabel}</Cell>
-          </Section>
-        </section>
-      )
-    }
-
-    if (auth.status === 'preview') {
-      return (
-        <section className="tgui-page">
-          <Placeholder
-            header="Browser preview"
-            description="Откройте Mini App из Telegram, чтобы увидеть персональные события и занятия."
-          />
-        </section>
-      )
-    }
-
-    if (view === 'school') {
-      return <SchoolPage state={school} />
+    if (auth.status !== 'authenticated') {
+      return <InfoPage state={school} />
     }
 
     if (view === 'profile') {
@@ -1089,7 +1053,6 @@ export default function App() {
       </section>
     )
   }
-
   return (
     <div className={showBottomNav ? 'app-shell has-bottom-nav' : 'app-shell'}>
       <header className="topbar">
@@ -1141,18 +1104,18 @@ export default function App() {
       {showBottomNav && (
         <Tabbar className="tgui-bottom-nav">
           <Tabbar.Item
-            selected={view === 'events'}
-            text="События"
-            onClick={() => switchView('events')}
+            selected={view === 'activities'}
+            text="Активности"
+            onClick={() => switchView('activities')}
           >
-            <NavIcon view="events" />
+            <NavIcon view="activities" />
           </Tabbar.Item>
           <Tabbar.Item
-            selected={view === 'school'}
-            text="Школа"
-            onClick={() => switchView('school')}
+            selected={view === 'info'}
+            text="Инфо"
+            onClick={() => switchView('info')}
           >
-            <NavIcon view="school" />
+            <NavIcon view="info" />
           </Tabbar.Item>
           <Tabbar.Item
             selected={view === 'profile'}
