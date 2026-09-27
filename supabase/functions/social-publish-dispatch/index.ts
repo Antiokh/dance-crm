@@ -110,6 +110,11 @@ function errorMessage(reason: unknown) {
   return reason instanceof Error ? reason.message : String(reason)
 }
 
+function truncateText(value: string | null, maxLength: number) {
+  if (!value || value.length <= maxLength) return value
+  return `${value.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`
+}
+
 function requireEnv(name: string) {
   const value = Deno.env.get(name)?.trim()
   if (!value) throw new TerminalPublishError(`${name} is not configured`)
@@ -379,7 +384,14 @@ function renderCopy(
 ): RenderedCopy {
   const payload = context.payload
   const title = optionalText(payload.title) ?? 'Событие'
-  const description = optionalText(payload.description)
+  const description = truncateText(
+    optionalText(payload.description),
+    destination.publisher === 'threads_api'
+      ? 180
+      : destination.publisher === 'telegram_api'
+        ? 900
+        : 1200,
+  )
   const startsAt = belgradeDateTime(payload.starts_at)
   const endsAt = belgradeDateTime(payload.ends_at)
   const venue = venueText(payload)
@@ -420,7 +432,11 @@ function renderCopy(
     )
   }
 
-  if (context.publication_type !== 'cancelled' && context.attendees.length > 0) {
+  if (
+    destination.publisher === 'telegram_api'
+    && context.publication_type !== 'cancelled'
+    && context.attendees.length > 0
+  ) {
     plainLines.push('', 'Кто идёт:', ...attendeeLines(context.attendees, false))
   }
 
@@ -454,7 +470,11 @@ function renderCopy(
     )
   }
 
-  if (context.publication_type !== 'cancelled' && context.attendees.length > 0) {
+  if (
+    destination.publisher === 'telegram_api'
+    && context.publication_type !== 'cancelled'
+    && context.attendees.length > 0
+  ) {
     htmlLines.push('', '<b>Кто идёт:</b>', ...attendeeLines(context.attendees, true))
   }
 
