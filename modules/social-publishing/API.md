@@ -1,6 +1,10 @@
 # API contract
 
-## Public application boundary
+## Consumer application boundary
+
+The reusable core creates `public.social_commands` but grants no browser role access to it. Each consumer supplies its own RLS policy and enqueue function.
+
+Dance CRM supplies:
 
 ### `public.enqueue_social_command(...)`
 
@@ -41,6 +45,7 @@ The service worker claims and updates command state.
 
 These functions are executable only by `service_role`:
 
+- `public.social_configure_workers(...)`;
 - `public.social_get_worker_secret()`
 - `public.social_claim_commands(...)`
 - `public.social_process_command(...)`
@@ -53,7 +58,9 @@ These functions are executable only by `service_role`:
 - `public.social_mark_publication_success(...)`
 - `public.social_mark_publication_failure(...)`
 
-Some of these are `SECURITY DEFINER` by design. They are not browser authority boundaries: only the system worker can execute them, and they are the controlled bridge into the non-exposed `social` schema.
+Some of these are `SECURITY DEFINER` by design. They are not browser authority boundaries: only the system worker/service role can execute them, and they are the controlled bridge into the non-exposed `social` schema.
+
+The command worker calls a consumer-supplied service-only hook named `public.social_process_command(command_id, worker)`. Dance CRM implements that hook in its event adapter; the reusable command queue does not know about events or other CRM tables.
 
 ## Admin operations
 
