@@ -124,3 +124,33 @@
 .quick-attend-error {
   margin-top: 0;
 }
+
+
+.class-description-inline,
+.class-role-balance {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.class-description-separator,
+.class-role-balance-dot {
+  color: var(
+    --tg-theme-subtitle-text-color,
+    var(--tg-theme-hint-color, #999)
+  );
+}
+
+.class-role-balance {
+  gap: 4px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.class-role-balance-leader {
+  color: #5aa9ff;
+}
+
+.class-role-balance-follower {
+  color: #f27ab1;
+}
