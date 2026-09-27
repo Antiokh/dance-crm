@@ -815,6 +815,7 @@ function InfoPage({ state }: { state: SchoolState }) {
                 hint={group.styleTitle}
                 subtitle={group.level ?? undefined}
                 description={[
+                  group.isSportAchievement ? '🏆 Спортивный класс' : null,
                   group.enrollmentStatus === 'open' ? 'Набор открыт' : null,
                   group.maxCapacity ? `до ${group.maxCapacity} человек` : null,
                 ].filter(Boolean).join(' · ') || undefined}

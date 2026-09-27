@@ -6,6 +6,9 @@ export type SchoolGroup = {
   description: string | null
   levelId: number | null
   level: string | null
+  levelKind: 'training' | 'competition' | null
+  levelSystemCode: string | null
+  isSportAchievement: boolean
   maxCapacity: number | null
   enrollmentStatus: string
   styleTitle: string
@@ -29,6 +32,10 @@ export type SchoolStyleLevel = {
   code: string
   title: string
   rankOrder: number
+  kind: 'training' | 'competition'
+  systemCode: string
+  isSportAchievement: boolean
+  description: string | null
 }
 
 export type SchoolStyle = {
@@ -54,6 +61,17 @@ function styleTitle(row: {
     || row.title_en?.trim()
     || row.title_sr?.trim()
     || 'Стиль'
+}
+
+function levelTitle(row: {
+  title_ru?: string | null
+  title_en?: string | null
+  title_sr?: string | null
+}) {
+  return row.title_en?.trim()
+    || row.title_ru?.trim()
+    || row.title_sr?.trim()
+    || 'Level'
 }
 
 function dancerName(row: {
@@ -99,7 +117,7 @@ export async function loadSchoolCatalog(): Promise<SchoolCatalog> {
       .order('title_en'),
     supabase
       .from('styles_levels')
-      .select('id, style_id, code, title_en, title_ru, title_sr, rank_order')
+      .select('id, style_id, code, title_en, title_ru, title_sr, rank_order, kind, system_code, is_sport_achievement, description')
       .eq('active', true)
       .order('rank_order')
       .order('title_en'),
@@ -115,12 +133,31 @@ export async function loadSchoolCatalog(): Promise<SchoolCatalog> {
     id: Number(row.id),
     styleId: Number(row.style_id),
     code: String(row.code),
-    title: styleTitle(row),
+    title: levelTitle(row),
     rankOrder:
       typeof row.rank_order === 'number'
         ? row.rank_order
         : 0,
-  }))
+    kind:
+      row.kind === 'competition'
+        ? 'competition' as const
+        : 'training' as const,
+    systemCode:
+      typeof row.system_code === 'string'
+        ? row.system_code
+        : 'school',
+    isSportAchievement: row.is_sport_achievement === true,
+    description:
+      typeof row.description === 'string'
+        ? row.description
+        : null,
+  })).sort((a, b) => {
+    const kindOrder = Number(a.kind === 'competition') - Number(b.kind === 'competition')
+    if (kindOrder !== 0) return kindOrder
+    const systemOrder = a.systemCode.localeCompare(b.systemCode)
+    if (systemOrder !== 0) return systemOrder
+    return a.rankOrder - b.rankOrder
+  })
 
   const styles = (stylesResult.data ?? []).map((row) => ({
     id: Number(row.id),
@@ -133,32 +170,39 @@ export async function loadSchoolCatalog(): Promise<SchoolCatalog> {
 
   const styleMap = new Map(styles.map((style) => [style.id, style.title]))
   const levelMap = new Map(
-    levels.map((level) => [level.id, level.title]),
+    levels.map((level) => [level.id, level]),
   )
   const groupRows = groupsResult.data ?? []
   const groupMap = new Map(
     groupRows.map((group) => [String(group.id), String(group.title)]),
   )
 
-  const groups: SchoolGroup[] = groupRows.map((row) => ({
-    id: String(row.id),
-    title: String(row.title),
-    description: typeof row.description === 'string' ? row.description : null,
-    levelId:
-      typeof row.level_id === 'number'
-        ? row.level_id
-        : null,
-    level:
+  const groups: SchoolGroup[] = groupRows.map((row) => {
+    const level =
       typeof row.level_id === 'number'
         ? levelMap.get(row.level_id) ?? null
-        : null,
-    maxCapacity: typeof row.max_capacity === 'number' ? row.max_capacity : null,
-    enrollmentStatus:
-      typeof row.enrollment_status === 'string'
-        ? row.enrollment_status
-        : 'closed',
-    styleTitle: styleMap.get(Number(row.style_id)) ?? 'Стиль',
-  }))
+        : null
+
+    return {
+      id: String(row.id),
+      title: String(row.title),
+      description: typeof row.description === 'string' ? row.description : null,
+      levelId:
+        typeof row.level_id === 'number'
+          ? row.level_id
+          : null,
+      level: level?.title ?? null,
+      levelKind: level?.kind ?? null,
+      levelSystemCode: level?.systemCode ?? null,
+      isSportAchievement: level?.isSportAchievement === true,
+      maxCapacity: typeof row.max_capacity === 'number' ? row.max_capacity : null,
+      enrollmentStatus:
+        typeof row.enrollment_status === 'string'
+          ? row.enrollment_status
+          : 'closed',
+      styleTitle: styleMap.get(Number(row.style_id)) ?? 'Стиль',
+    }
+  })
 
   const today = new Date().toISOString().slice(0, 10)
   const activeTrainerLinks = (trainerLinksResult.data ?? []).filter((row) => {
