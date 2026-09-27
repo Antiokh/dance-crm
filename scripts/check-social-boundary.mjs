@@ -49,9 +49,9 @@ for (const [name, source] of [
   }
 }
 
-if (!/security\s+invoker/i.test(commandMigration)
-  || !/function\s+public\.enqueue_social_command/i.test(commandMigration)) {
-  fail('public enqueue API must remain SECURITY INVOKER')
+if (!/security\s+invoker/i.test(eventAdapterMigration)
+  || !/function\s+public\.enqueue_social_command/i.test(eventAdapterMigration)) {
+  fail('consumer enqueue API must remain SECURITY INVOKER')
 }
 
 for (const [name, source] of [
@@ -69,8 +69,16 @@ if (!publisherMigration.includes('social.publications')
   fail('expected private publisher tables are missing')
 }
 
-if (/public\.(dance_events|event_attendance|dancer|venues|l_dance_style)/.test(publisherMigration)) {
-  fail('reusable social core must not depend on Dance CRM domain tables')
+if (/public\.(dance_events|event_attendance|dancer|venues|l_dance_style)|private\.has_app_role|public\.app_role/.test(commandMigration)) {
+  fail('reusable command queue must not depend on Dance CRM domain/auth tables')
+}
+
+if (/public\.(dance_events|event_attendance|dancer|venues|l_dance_style)|private\.has_app_role|public\.app_role/.test(publisherMigration)) {
+  fail('reusable social core must not depend on Dance CRM domain/auth tables')
+}
+
+if (/private\.has_app_role|public\.app_role|private\.current_dancer_id/.test(workerMigration)) {
+  fail('reusable worker core must not depend on Dance CRM admin roles')
 }
 
 if (!/public\.dance_events/.test(eventAdapterMigration)
