@@ -3,7 +3,7 @@
 -- Schema:   public
 -- Entity:   tables
 -- Mode:     table_bundle
--- Updated:  2026-09-27T08:01:08.350Z
+-- Updated:  2026-09-27T08:52:04.354Z
 
 -- table: bookings
 
@@ -240,7 +240,7 @@ CREATE TABLE public.dancer (
   tg_web_app jsonb,
   primary_role smallint,
   saved boolean NOT NULL DEFAULT false,
-  auth_user_id uuid NOT NULL,
+  auth_user_id uuid,
   CONSTRAINT dancer_auth_user_id_fkey FOREIGN KEY (auth_user_id) REFERENCES auth.users(id) ON UPDATE CASCADE ON DELETE RESTRICT,
   CONSTRAINT dancer_auth_user_id_key UNIQUE (auth_user_id),
   CONSTRAINT dancer_pkey PRIMARY KEY (id),
