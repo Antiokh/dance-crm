@@ -476,6 +476,7 @@ set search_path = ''
 as $function$
 declare
   v_type text;
+  v_publication_id uuid;
 begin
   if tg_op = 'INSERT' then
     if new.published and new.cancelled_at is null then
@@ -485,6 +486,33 @@ begin
         txid_current()
       );
     end if;
+    return new;
+  end if;
+
+  if old.published and not new.published then
+    update public.social_publication_jobs j
+    set status = 'cancelled',
+        lease_owner = null,
+        lease_expires_at = null,
+        last_error = 'Event was unpublished before delivery'
+    where j.publication_id in (
+      select p.id
+      from public.event_social_publications p
+      where p.event_id = new.id
+    )
+      and j.status in ('queued', 'retry');
+
+    for v_publication_id in
+      select p.id
+      from public.event_social_publications p
+      where p.event_id = new.id
+        and p.status in ('queued', 'held', 'partial')
+    loop
+      perform private.refresh_event_social_publication_status(
+        v_publication_id
+      );
+    end loop;
+
     return new;
   end if;
 
