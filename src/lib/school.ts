@@ -4,6 +4,7 @@ export type SchoolGroup = {
   id: string
   title: string
   description: string | null
+  levelId: number | null
   level: string | null
   maxCapacity: number | null
   enrollmentStatus: string
@@ -23,10 +24,18 @@ export type SchoolVenue = {
   capacity: number | null
 }
 
+export type SchoolStyleLevel = {
+  id: number
+  code: string
+  title: string
+  rankOrder: number
+}
+
 export type SchoolStyle = {
   id: number
   title: string
   isPartnerDance: boolean
+  levels: SchoolStyleLevel[]
 }
 
 export type SchoolCatalog = {
@@ -64,10 +73,16 @@ function dancerName(row: {
 }
 
 export async function loadSchoolCatalog(): Promise<SchoolCatalog> {
-  const [groupsResult, trainerLinksResult, venuesResult, stylesResult] = await Promise.all([
+  const [
+    groupsResult,
+    trainerLinksResult,
+    venuesResult,
+    stylesResult,
+    levelsResult,
+  ] = await Promise.all([
     supabase
       .from('dance_group')
-      .select('id, style_id, title, description, level, max_capacity, enrollment_status')
+      .select('id, style_id, title, description, level_id, max_capacity, enrollment_status')
       .eq('active', true)
       .order('title'),
     supabase
@@ -82,20 +97,44 @@ export async function loadSchoolCatalog(): Promise<SchoolCatalog> {
       .from('l_dance_style')
       .select('id, title_en, title_ru, title_sr, is_partner_dance')
       .order('title_en'),
+    supabase
+      .from('styles_levels')
+      .select('id, style_id, code, title_en, title_ru, title_sr, rank_order')
+      .eq('active', true)
+      .order('rank_order')
+      .order('title_en'),
   ])
 
   if (groupsResult.error) throw groupsResult.error
   if (trainerLinksResult.error) throw trainerLinksResult.error
   if (venuesResult.error) throw venuesResult.error
   if (stylesResult.error) throw stylesResult.error
+  if (levelsResult.error) throw levelsResult.error
+
+  const levels = (levelsResult.data ?? []).map((row) => ({
+    id: Number(row.id),
+    styleId: Number(row.style_id),
+    code: String(row.code),
+    title: styleTitle(row),
+    rankOrder:
+      typeof row.rank_order === 'number'
+        ? row.rank_order
+        : 0,
+  }))
 
   const styles = (stylesResult.data ?? []).map((row) => ({
     id: Number(row.id),
     title: styleTitle(row),
     isPartnerDance: row.is_partner_dance === true,
+    levels: levels
+      .filter((level) => level.styleId === Number(row.id))
+      .map(({ styleId: _styleId, ...level }) => level),
   }))
 
   const styleMap = new Map(styles.map((style) => [style.id, style.title]))
+  const levelMap = new Map(
+    levels.map((level) => [level.id, level.title]),
+  )
   const groupRows = groupsResult.data ?? []
   const groupMap = new Map(
     groupRows.map((group) => [String(group.id), String(group.title)]),
@@ -105,7 +144,14 @@ export async function loadSchoolCatalog(): Promise<SchoolCatalog> {
     id: String(row.id),
     title: String(row.title),
     description: typeof row.description === 'string' ? row.description : null,
-    level: typeof row.level === 'string' ? row.level : null,
+    levelId:
+      typeof row.level_id === 'number'
+        ? row.level_id
+        : null,
+    level:
+      typeof row.level_id === 'number'
+        ? levelMap.get(row.level_id) ?? null
+        : null,
     maxCapacity: typeof row.max_capacity === 'number' ? row.max_capacity : null,
     enrollmentStatus:
       typeof row.enrollment_status === 'string'
