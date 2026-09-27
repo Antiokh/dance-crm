@@ -1,12 +1,16 @@
 import { createCors } from '../_shared/cors.ts'
 import { supabaseService } from '../_shared/supabase.ts'
 
-const WORKER_ID = 'edge:social-publish-dispatch'
 const LEASE_SECONDS = 180
+
+function newWorkerId() {
+  return `edge:social-publish-dispatch:${crypto.randomUUID()}`
+}
 
 type JsonRecord = Record<string, unknown>
 
 type ClaimedJob = {
+  worker_id: string
   job_id: string
   publication_id: string
   destination_key: string
@@ -160,16 +164,20 @@ async function expectedSecret() {
   return typeof data === 'string' ? data : ''
 }
 
-async function claimJobs(): Promise<ClaimedJob[]> {
+async function claimJobs(workerId: string): Promise<ClaimedJob[]> {
   const { data, error } = await supabaseService()
     .rpc('social_claim_publication_jobs', {
-      p_worker: WORKER_ID,
+      p_worker: workerId,
       p_limit: 8,
       p_lease_seconds: LEASE_SECONDS,
     })
 
   if (error) throw error
-  return Array.isArray(data) ? data as ClaimedJob[] : []
+  if (!Array.isArray(data)) return []
+  return (data as Omit<ClaimedJob, 'worker_id'>[]).map((job) => ({
+    ...job,
+    worker_id: workerId,
+  }))
 }
 
 async function loadDestination(key: string): Promise<Destination> {
@@ -245,7 +253,7 @@ async function markStarted(
   const { data, error } = await supabaseService()
     .rpc('social_mark_publish_started', {
       p_job_id: job.job_id,
-      p_worker: WORKER_ID,
+      p_worker: job.worker_id,
       p_progress: progress,
     })
 
@@ -259,7 +267,7 @@ async function patchProgress(job: ClaimedJob, progress: JsonRecord) {
   const { data, error } = await supabaseService()
     .rpc('social_patch_job_progress', {
       p_job_id: job.job_id,
-      p_worker: WORKER_ID,
+      p_worker: job.worker_id,
       p_progress: progress,
     })
 
@@ -273,7 +281,7 @@ async function markSuccess(job: ClaimedJob, result: PublishResult) {
   const { data, error } = await supabaseService()
     .rpc('social_mark_publication_success', {
       p_job_id: job.job_id,
-      p_worker: WORKER_ID,
+      p_worker: job.worker_id,
       p_external_post_id: result.external_post_id,
       p_external_post_url: result.external_post_url,
       p_provider_response: result.provider_response,
@@ -293,7 +301,7 @@ async function markFailure(
   const { data, error } = await supabaseService()
     .rpc('social_mark_publication_failure', {
       p_job_id: job.job_id,
-      p_worker: WORKER_ID,
+      p_worker: job.worker_id,
       p_error: errorMessage(reason),
       p_retry_after_seconds: retryAfterSeconds,
       p_provider_response: providerResponse,
@@ -1140,7 +1148,8 @@ Deno.serve(async (request) => {
       return cors.json({ error: 'Forbidden' }, 403)
     }
 
-    const jobs = await claimJobs()
+    const workerId = newWorkerId()
+    const jobs = await claimJobs(workerId)
     await debug('queue_claimed', {
       claimed: jobs.map((job) => ({
         job_id: job.job_id,
