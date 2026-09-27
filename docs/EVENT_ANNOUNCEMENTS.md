@@ -179,6 +179,9 @@ The database sends the Vault-managed worker secret as `x-social-worker-secret`. 
 The two-stage queue provides:
 
 - an RLS-protected public command boundary separated from the private delivery queue;
+- transactional/scheduled delivery lanes;
+- `available_at` scheduling, expiration and job dependencies;
+- priority aging so low-priority work is not starved indefinitely;
 - idempotency keys;
 - leases and lease expiry recovery;
 - retry/dead states;
