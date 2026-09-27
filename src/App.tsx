@@ -366,7 +366,7 @@ function DancerHome({
     )
   }
 
-  const data = data
+  const data = state.data
   if (!data) return null
 
   const todayItems: TodayItem[] = [
@@ -792,7 +792,7 @@ function InfoPage({ state }: { state: SchoolState }) {
     )
   }
 
-  const data = data
+  const data = state.data
   if (!data) return null
 
   return (
@@ -911,7 +911,7 @@ function ProfilePage({ state }: { state: ProfileState }) {
     )
   }
 
-  const data = data
+  const data = state.data
   if (!data) return null
 
   const activeSubscription =
