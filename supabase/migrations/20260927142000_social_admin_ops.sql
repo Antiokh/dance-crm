@@ -1,4 +1,5 @@
--- Administrator operations and diagnostics for event social delivery.
+-- Administrative control/diagnostics for the private social module.
+-- These RPCs expose only safe configuration and operational summaries.
 
 create or replace function public.admin_set_social_destination(
   p_key text,
@@ -12,7 +13,7 @@ set search_path = ''
 as $function$
 declare
   v_settings jsonb;
-  v_row public.social_destinations%rowtype;
+  v_row social.destinations%rowtype;
 begin
   if not private.has_app_role('administrator'::public.app_role) then
     raise exception 'administrator role required'
@@ -37,13 +38,15 @@ begin
     'bot_token',
     'secret',
     'password',
-    'webhook_url'
+    'webhook_url',
+    'authorization',
+    'api_key'
   ] then
     raise exception 'provider secrets must stay in Edge Function secrets'
       using errcode = '22023';
   end if;
 
-  update public.social_destinations d
+  update social.destinations d
   set enabled = coalesce(p_enabled, false),
       settings = d.settings || v_settings,
       cooldown_until = case
@@ -77,14 +80,10 @@ end;
 $function$;
 
 revoke all on function public.admin_set_social_destination(
-  text,
-  boolean,
-  jsonb
+  text, boolean, jsonb
 ) from public, anon;
 grant execute on function public.admin_set_social_destination(
-  text,
-  boolean,
-  jsonb
+  text, boolean, jsonb
 ) to authenticated;
 
 create or replace function public.admin_get_social_delivery_status(
@@ -98,7 +97,8 @@ set search_path = ''
 as $function$
 declare
   v_destinations jsonb;
-  v_dispatch jsonb;
+  v_workers jsonb;
+  v_commands jsonb;
   v_publications jsonb;
 begin
   if not private.has_app_role('administrator'::public.app_role) then
@@ -125,29 +125,61 @@ begin
     '[]'::jsonb
   )
   into v_destinations
-  from public.social_destinations d;
+  from social.destinations d;
 
   select coalesce(
     jsonb_build_object(
       'enabled', c.enabled,
+      'command_url', c.command_url,
       'dispatch_url', c.dispatch_url,
       'updated_at', c.updated_at
     ),
     jsonb_build_object(
       'enabled', false,
+      'command_url', null,
       'dispatch_url', null,
       'updated_at', null
     )
   )
-  into v_dispatch
-  from public.social_dispatch_config c
+  into v_workers
+  from social.worker_config c
   where c.singleton;
 
   select coalesce(
     jsonb_agg(
       jsonb_build_object(
+        'command_id', c.id,
+        'command_type', c.command_type,
+        'source_type', c.source_type,
+        'source_id', c.source_id,
+        'operation', c.operation,
+        'status', c.status,
+        'attempt_count', c.attempt_count,
+        'available_at', c.available_at,
+        'last_error', c.last_error,
+        'created_at', c.created_at,
+        'processed_at', c.processed_at
+      )
+      order by c.created_at desc
+    ),
+    '[]'::jsonb
+  )
+  into v_commands
+  from (
+    select c0.*
+    from public.social_commands c0
+    where c0.source_type = 'event'
+      and (p_event_id is null or c0.source_id = p_event_id)
+    order by c0.created_at desc
+    limit 20
+  ) c;
+
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
         'publication_id', p.id,
-        'event_id', p.event_id,
+        'source_type', p.source_type,
+        'event_id', p.source_id,
         'publication_type', p.publication_type,
         'version', p.version,
         'status', p.status,
@@ -169,7 +201,7 @@ begin
             )
             order by j.destination_key
           )
-          from public.social_publication_jobs j
+          from social.delivery_jobs j
           where j.publication_id = p.id
         ), '[]'::jsonb)
       )
@@ -180,15 +212,17 @@ begin
   into v_publications
   from (
     select p0.*
-    from public.event_social_publications p0
-    where p_event_id is null or p0.event_id = p_event_id
+    from social.publications p0
+    where p0.source_type = 'event'
+      and (p_event_id is null or p0.source_id = p_event_id)
     order by p0.created_at desc
     limit 20
   ) p;
 
   return jsonb_build_object(
-    'dispatch', v_dispatch,
+    'workers', v_workers,
     'destinations', v_destinations,
+    'commands', v_commands,
     'publications', v_publications
   );
 end;
