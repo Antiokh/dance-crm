@@ -2,7 +2,7 @@
 -- Source: live Supabase database function versioning
 -- Schema:   public
 -- Function: get_my_dancer_home_feed
--- Updated:  2026-09-27T01:21:05.155Z
+-- Updated:  2026-09-27T07:42:03.116Z
 
 -- overload
 -- language: plpgsql
@@ -169,7 +169,7 @@ begin
       cs.visibility,
       g.id as group_id,
       g.title as group_title,
-      g.level as group_level,
+      coalesce(gl.title_ru, gl.title_en, gl.title_sr) as group_level,
       jsonb_build_object(
         'id', ds.id,
         'title_en', ds.title_en,
@@ -211,6 +211,9 @@ begin
      and cs.visibility <> 'hidden'::public.class_visibility
      and cs.ends_at > now()
     join public.l_dance_style ds on ds.id = g.style_id
+    left join public.styles_levels gl
+      on gl.id = g.level_id
+     and gl.style_id = g.style_id
     left join public.venues v on v.id = cs.venue_id
     where gm.dancer_id = v_dancer_id
       and gm.status = 'active'::public.group_membership_status
@@ -230,7 +233,7 @@ begin
       cs.visibility,
       g.id as group_id,
       g.title as group_title,
-      g.level as group_level,
+      coalesce(gl.title_ru, gl.title_en, gl.title_sr) as group_level,
       jsonb_build_object(
         'id', ds.id,
         'title_en', ds.title_en,
@@ -272,6 +275,9 @@ begin
      and cs.visibility <> 'hidden'::public.class_visibility
      and cs.ends_at > now()
     join public.l_dance_style ds on ds.id = g.style_id
+    left join public.styles_levels gl
+      on gl.id = g.level_id
+     and gl.style_id = g.style_id
     left join public.venues v on v.id = cs.venue_id
     where gm.dancer_id = v_dancer_id
       and gm.status = 'active'::public.group_membership_status
