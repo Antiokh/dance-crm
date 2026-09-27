@@ -344,6 +344,19 @@ begin
       v_publication.publication_type <> 'rsvp_update'
       or d.publisher = 'telegram_api'
     )
+    and (
+      v_publication.publication_type <> 'cancelled'
+      or exists (
+        select 1
+        from public.social_publication_jobs prior_job
+        join public.event_social_publications prior_publication
+          on prior_publication.id = prior_job.publication_id
+        where prior_publication.event_id = v_publication.event_id
+          and prior_publication.id <> v_publication.id
+          and prior_job.destination_key = d.key
+          and prior_job.status = 'published'
+      )
+    )
   on conflict (publication_id, destination_key) do nothing;
 
   get diagnostics v_inserted = row_count;
