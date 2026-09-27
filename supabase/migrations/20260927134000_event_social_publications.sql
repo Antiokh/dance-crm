@@ -1024,6 +1024,8 @@ set search_path = ''
 as $function$
 declare
   v_publication_id uuid;
+  v_destination_key text;
+  v_rate_limit_group text;
 begin
   update public.social_publication_jobs j
   set status = 'published',
@@ -1037,10 +1039,24 @@ begin
   where j.id = p_job_id
     and j.status = 'leased'
     and j.lease_owner = p_worker
-  returning j.publication_id into v_publication_id;
+  returning j.publication_id, j.destination_key
+  into v_publication_id, v_destination_key;
 
   if not found then
     return false;
+  end if;
+
+  update public.social_destinations d
+  set last_error = null,
+      cooldown_until = null
+  where d.key = v_destination_key
+  returning d.rate_limit_group into v_rate_limit_group;
+
+  if v_rate_limit_group is not null then
+    update public.social_rate_limit_groups g
+    set cooldown_until = null
+    where g.key = v_rate_limit_group
+      and coalesce(g.cooldown_until, '-infinity'::timestamptz) <= now();
   end if;
 
   perform private.refresh_event_social_publication_status(v_publication_id);
