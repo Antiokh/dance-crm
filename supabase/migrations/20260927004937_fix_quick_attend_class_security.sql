@@ -1,3 +1,8 @@
+-- Historical migration preserved to match the production migration ledger.
+-- This SECURITY DEFINER wrapper was immediately determined to be unnecessary
+-- and is removed by 20260927005041_remove_unneeded_quick_attend_definers.sql.
+-- Do not copy this pattern for new client actions.
+
 create or replace function public.set_my_class_attending(
   p_slot_id uuid,
   p_attending boolean
