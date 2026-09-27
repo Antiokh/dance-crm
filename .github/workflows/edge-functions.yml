@@ -23,3 +23,26 @@ jobs:
       - run: deno check supabase/functions/event-weather/index.ts
       - run: deno check supabase/functions/social-command-worker/index.ts
       - run: deno check supabase/functions/social-publish-dispatch/index.ts
+
+
+  sql-smoke:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - run: psql -h 127.0.0.1 -U postgres -d postgres -f scripts/sql/social-publishing-smoke.sql
