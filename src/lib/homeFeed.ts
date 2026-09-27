@@ -247,33 +247,56 @@ export async function loadDancerHomeFeed(): Promise<DancerHomeFeed> {
   const parsedAttention = parseList(source.attention, parseAttention)
   const parsedTodayEvents = parseList(source.today_events, parseEvent)
   const parsedEvents = parseList(source.events, parseEvent)
-  const balanceEventIds = Array.from(new Set([
-    ...parsedAttention.flatMap((item) => item.event ? [item.event.id] : []),
-    ...parsedTodayEvents.map((event) => event.id),
-    ...parsedEvents.map((event) => event.id),
-  ]))
+  const visibleEventList = [
+    ...parsedAttention.flatMap((item) => item.event ? [item.event] : []),
+    ...parsedTodayEvents,
+    ...parsedEvents,
+  ]
+  const balanceEventIds = Array.from(new Set(
+    visibleEventList.map((event) => event.id),
+  ))
+  const styleIds = Array.from(new Set(
+    visibleEventList.flatMap((event) => event.style ? [event.style.id] : []),
+  ))
 
   const balances = new Map<string, EventRoleBalance>()
-  if (balanceEventIds.length > 0) {
-    const { data: balanceRows, error: balanceError } = await supabase
-      .from('dance_events')
-      .select('id, leader_going_count, follower_going_count, other_going_count')
-      .in('id', balanceEventIds)
+  const partnerStyles = new Set<number>()
 
-    if (balanceError) throw balanceError
+  const [balanceResult, stylesResult] = await Promise.all([
+    balanceEventIds.length > 0
+      ? supabase
+          .from('dance_events')
+          .select('id, leader_going_count, follower_going_count, other_going_count')
+          .in('id', balanceEventIds)
+      : Promise.resolve({ data: [], error: null }),
+    styleIds.length > 0
+      ? supabase
+          .from('l_dance_style')
+          .select('id, is_partner_dance')
+          .in('id', styleIds)
+      : Promise.resolve({ data: [], error: null }),
+  ])
 
-    for (const row of balanceRows ?? []) {
-      balances.set(String(row.id), {
-        leader: typeof row.leader_going_count === 'number'
-          ? row.leader_going_count
-          : 0,
-        follower: typeof row.follower_going_count === 'number'
-          ? row.follower_going_count
-          : 0,
-        other: typeof row.other_going_count === 'number'
-          ? row.other_going_count
-          : 0,
-      })
+  if (balanceResult.error) throw balanceResult.error
+  if (stylesResult.error) throw stylesResult.error
+
+  for (const row of balanceResult.data ?? []) {
+    balances.set(String(row.id), {
+      leader: typeof row.leader_going_count === 'number'
+        ? row.leader_going_count
+        : 0,
+      follower: typeof row.follower_going_count === 'number'
+        ? row.follower_going_count
+        : 0,
+      other: typeof row.other_going_count === 'number'
+        ? row.other_going_count
+        : 0,
+    })
+  }
+
+  for (const row of stylesResult.data ?? []) {
+    if (row.is_partner_dance === true) {
+      partnerStyles.add(Number(row.id))
     }
   }
 
@@ -282,14 +305,22 @@ export async function loadDancerHomeFeed(): Promise<DancerHomeFeed> {
     attendState.bookings.map((booking) => [booking.slot_id, booking]),
   )
 
-  const attachEventState = (event: DanceEvent): DanceEvent => ({
-    ...event,
-    attending: eventIds.has(event.id),
-    role_balance:
-      event.style?.is_partner_dance
-        ? balances.get(event.id) ?? { leader: 0, follower: 0, other: 0 }
+  const attachEventState = (event: DanceEvent): DanceEvent => {
+    const isPartnerDance =
+      event.style ? partnerStyles.has(event.style.id) : false
+
+    return {
+      ...event,
+      style: event.style
+        ? { ...event.style, is_partner_dance: isPartnerDance }
         : null,
-  })
+      attending: eventIds.has(event.id),
+      role_balance:
+        isPartnerDance
+          ? balances.get(event.id) ?? { leader: 0, follower: 0, other: 0 }
+          : null,
+    }
+  }
 
   const attachClassState = (item: GroupClass): GroupClass => {
     const booking = bookings.get(item.id)
