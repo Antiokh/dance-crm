@@ -47,7 +47,7 @@ alter table social.worker_config enable row level security;
 revoke all on social.worker_config from public, anon, authenticated;
 grant all on social.worker_config to service_role;
 
-create or replace function public.social_get_dispatch_secret()
+create or replace function public.social_get_worker_secret()
 returns text
 language sql
 stable
@@ -61,9 +61,9 @@ as $function$
   limit 1
 $function$;
 
-revoke all on function public.social_get_dispatch_secret()
+revoke all on function public.social_get_worker_secret()
   from public, anon, authenticated;
-grant execute on function public.social_get_dispatch_secret()
+grant execute on function public.social_get_worker_secret()
   to service_role;
 
 create or replace function public.admin_configure_social_workers(
@@ -178,7 +178,7 @@ begin
     url := v_url,
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'x-dance-social-secret', v_secret
+      'x-social-worker-secret', v_secret
     ),
     body := '{}'::jsonb,
     timeout_milliseconds := 10000
@@ -228,21 +228,21 @@ begin
     select jobid
     from cron.job
     where jobname in (
-      'dance-social-command-worker',
-      'dance-social-publish-dispatch'
+      'social-command-worker',
+      'social-publish-dispatch'
     )
   loop
     perform cron.unschedule(v_job.jobid);
   end loop;
 
   perform cron.schedule(
-    'dance-social-command-worker',
+    'social-command-worker',
     '* * * * *',
     'select public.social_command_tick();'
   );
 
   perform cron.schedule(
-    'dance-social-publish-dispatch',
+    'social-publish-dispatch',
     '* * * * *',
     'select public.social_dispatch_tick();'
   );
