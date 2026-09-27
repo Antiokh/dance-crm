@@ -19,7 +19,8 @@ type ClaimedJob = {
   operation: 'publish' | 'edit'
   settings: JsonRecord | null
   publication_type: 'announcement' | 'updated' | 'cancelled' | 'rsvp_update'
-  event_id: string
+  source_type: string
+  source_id: string
   payload: JsonRecord
   attempt_count: number
   max_attempts: number
@@ -41,21 +42,11 @@ type Attendee = {
 
 type PublicationContext = {
   publication_id: string
-  event_id: string
+  source_type: string
+  source_id: string
   publication_type: ClaimedJob['publication_type']
   version: number
   payload: JsonRecord
-  event_state: {
-    published: boolean
-    cancelled_at: string | null
-  }
-  balance: {
-    leader: number
-    follower: number
-    other: number
-    total: number
-  }
-  attendees: Attendee[]
   telegram_message: {
     message_id: string
     url: string | null
@@ -193,7 +184,7 @@ async function loadDestination(key: string): Promise<Destination> {
 
 async function loadContext(publicationId: string): Promise<PublicationContext> {
   const { data, error } = await supabaseService()
-    .rpc('social_get_event_publication_context', {
+    .rpc('social_get_publication_context', {
       p_publication_id: publicationId,
     })
 
@@ -203,38 +194,15 @@ async function loadContext(publicationId: string): Promise<PublicationContext> {
   }
 
   const source = data as JsonRecord
-  const balance = record(source.balance)
-  const eventState = record(source.event_state)
   const telegramMessage = record(source.telegram_message)
 
   return {
     publication_id: String(source.publication_id),
-    event_id: String(source.event_id),
+    source_type: String(source.source_type),
+    source_id: String(source.source_id),
     publication_type: source.publication_type as PublicationContext['publication_type'],
     version: numberValue(source.version),
     payload: record(source.payload),
-    event_state: {
-      published: eventState.published === true,
-      cancelled_at: optionalText(eventState.cancelled_at),
-    },
-    balance: {
-      leader: numberValue(balance.leader),
-      follower: numberValue(balance.follower),
-      other: numberValue(balance.other),
-      total: numberValue(balance.total),
-    },
-    attendees: Array.isArray(source.attendees)
-      ? source.attendees.map((value) => {
-          const item = record(value)
-          return {
-            name: text(item.name).trim() || 'Танцор',
-            role_id:
-              typeof item.role_id === 'number'
-                ? item.role_id
-                : null,
-          }
-        })
-      : [],
     telegram_message:
       optionalText(telegramMessage.message_id)
         ? {
@@ -391,6 +359,29 @@ function renderCopy(
   context: PublicationContext,
 ): RenderedCopy {
   const payload = context.payload
+  const balanceSource = record(payload.balance)
+  const balance = {
+    leader: numberValue(balanceSource.leader ?? payload.leader_going_count),
+    follower: numberValue(balanceSource.follower ?? payload.follower_going_count),
+    other: numberValue(balanceSource.other ?? payload.other_going_count),
+    total: numberValue(
+      balanceSource.total
+      ?? (
+        numberValue(payload.leader_going_count)
+        + numberValue(payload.follower_going_count)
+        + numberValue(payload.other_going_count)
+      ),
+    ),
+  }
+  const attendees: Attendee[] = Array.isArray(payload.attendees)
+    ? payload.attendees.map((value) => {
+        const item = record(value)
+        return {
+          name: text(item.name).trim() || 'Танцор',
+          role_id: typeof item.role_id === 'number' ? item.role_id : null,
+        }
+      })
+    : []
   const title = optionalText(payload.title) ?? 'Событие'
   const description = truncateText(
     optionalText(payload.description),
@@ -405,8 +396,12 @@ function renderCopy(
   const venue = venueText(payload)
   const style = styleTitle(payload)
 
-  const goingUrl = eventRsvpUrl(destination, context.event_id, 'going')
-  const notGoingUrl = eventRsvpUrl(destination, context.event_id, 'not_going')
+  const goingUrl = context.source_type === 'event'
+    ? eventRsvpUrl(destination, context.source_id, 'going')
+    : null
+  const notGoingUrl = context.source_type === 'event'
+    ? eventRsvpUrl(destination, context.source_id, 'not_going')
+    : null
 
   const prefix =
     context.publication_type === 'cancelled'
@@ -436,16 +431,16 @@ function renderCopy(
   if (context.publication_type !== 'cancelled') {
     plainLines.push(
       '',
-      `👥 Идут: ${context.balance.total} · Leader ${context.balance.leader} · Follower ${context.balance.follower}`,
+      `👥 Идут: ${balance.total} · Leader ${balance.leader} · Follower ${balance.follower}`,
     )
   }
 
   if (
     destination.publisher === 'telegram_api'
     && context.publication_type !== 'cancelled'
-    && context.attendees.length > 0
+    && attendees.length > 0
   ) {
-    plainLines.push('', 'Кто идёт:', ...attendeeLines(context.attendees, false))
+    plainLines.push('', 'Кто идёт:', ...attendeeLines(attendees, false))
   }
 
   if (context.publication_type !== 'cancelled' && goingUrl && notGoingUrl) {
@@ -474,16 +469,16 @@ function renderCopy(
   if (context.publication_type !== 'cancelled') {
     htmlLines.push(
       '',
-      `👥 Идут: <b>${context.balance.total}</b> · Leader <b>${context.balance.leader}</b> · Follower <b>${context.balance.follower}</b>`,
+      `👥 Идут: <b>${balance.total}</b> · Leader <b>${balance.leader}</b> · Follower <b>${balance.follower}</b>`,
     )
   }
 
   if (
     destination.publisher === 'telegram_api'
     && context.publication_type !== 'cancelled'
-    && context.attendees.length > 0
+    && attendees.length > 0
   ) {
-    htmlLines.push('', '<b>Кто идёт:</b>', ...attendeeLines(context.attendees, true))
+    htmlLines.push('', '<b>Кто идёт:</b>', ...attendeeLines(attendees, true))
   }
 
   return {
@@ -1000,7 +995,7 @@ async function publishMake(
         destination_key: destination.key,
         platform: destination.platform,
         job_id: job.job_id,
-        post_id: context.event_id,
+        post_id: context.source_id,
         variant_id: context.publication_id,
         idempotency_key: `${job.publication_id}:${destination.key}`,
         title: copy.title,
@@ -1017,11 +1012,14 @@ async function publishMake(
           publication_type: context.publication_type,
           publication_version: context.version,
         },
-        event: {
-          ...context.payload,
-          balance: context.balance,
-          attendees: context.attendees,
+        source: {
+          type: context.source_type,
+          id: context.source_id,
+          payload: context.payload,
         },
+        ...(context.source_type === 'event'
+          ? { event: context.payload }
+          : {}),
         actions: {
           going_url: copy.goingUrl,
           not_going_url: copy.notGoingUrl,
@@ -1067,21 +1065,6 @@ async function publishJob(
   context: PublicationContext,
   copy: RenderedCopy,
 ) {
-  if (context.publication_type === 'cancelled') {
-    if (context.event_state.cancelled_at === null) {
-      throw new TerminalPublishError(
-        'Cancellation publication was superseded because the event is active again',
-      )
-    }
-  } else if (
-    !context.event_state.published
-    || context.event_state.cancelled_at !== null
-  ) {
-    throw new TerminalPublishError(
-      'Event is no longer publishable',
-    )
-  }
-
   if (!destination.enabled) {
     throw new TerminalPublishError(
       `Destination ${destination.key} is disabled`,
