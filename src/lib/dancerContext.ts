@@ -21,6 +21,7 @@ export type DanceStyle = {
   title_sr: string | null
   is_partner_dance: boolean
   main_role: number | null
+  role_ids: number[]
 }
 
 export type DancerContext = {
@@ -59,6 +60,9 @@ function parseStyle(value: unknown): DanceStyle | null {
     is_partner_dance: source.is_partner_dance !== false,
     main_role:
       typeof source.main_role === 'number' ? source.main_role : null,
+    role_ids: Array.isArray(source.role_ids)
+      ? source.role_ids.filter((role): role is number => typeof role === 'number')
+      : [],
   }
 }
 
