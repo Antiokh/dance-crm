@@ -84,6 +84,16 @@ with check (
   and processed_at is null
   and last_error is null
   and created_by = auth.uid()
+  and not (payload ?| array[
+    'token',
+    'access_token',
+    'bot_token',
+    'secret',
+    'password',
+    'webhook_url',
+    'authorization',
+    'api_key'
+  ])
   and source_type = 'event'
   and (
     private.has_app_role('administrator'::public.app_role)
@@ -152,6 +162,20 @@ begin
 
   if jsonb_typeof(v_payload) <> 'object' then
     raise exception 'social command payload must be a JSON object'
+      using errcode = '22023';
+  end if;
+
+  if v_payload ?| array[
+    'token',
+    'access_token',
+    'bot_token',
+    'secret',
+    'password',
+    'webhook_url',
+    'authorization',
+    'api_key'
+  ] then
+    raise exception 'provider secrets must not be placed in social commands'
       using errcode = '22023';
   end if;
 
