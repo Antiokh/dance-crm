@@ -51,12 +51,12 @@ $$;
 create or replace function private.touch_updated_at()
 returns trigger
 language plpgsql
-as $
+as $function$
 begin
   new.updated_at := now();
   return new;
 end;
-$;
+$function$;
 
 grant usage on schema extensions, auth, private
   to authenticated, service_role;
