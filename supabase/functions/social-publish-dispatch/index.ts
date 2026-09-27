@@ -922,6 +922,7 @@ async function publishInstagram(
 }
 
 async function publishMake(
+  job: ClaimedJob,
   destination: Destination,
   context: PublicationContext,
   copy: RenderedCopy,
@@ -937,27 +938,40 @@ async function publishMake(
     )
   }
 
-  const response = await fetch(webhookUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      destination: 'social_publishing',
-      destination_key: destination.key,
-      platform: destination.platform,
-      title: copy.title,
-      text: copy.plain,
-      html: copy.html,
-      event: {
-        ...context.payload,
-        balance: context.balance,
-        attendees: context.attendees,
-      },
-      actions: {
-        going_url: copy.goingUrl,
-        not_going_url: copy.notGoingUrl,
-      },
-    }),
+  await markStarted(job, {
+    provider: 'make_webhook',
+    safe_retry: false,
   })
+
+  let response: Response
+  try {
+    response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        destination: 'social_publishing',
+        destination_key: destination.key,
+        platform: destination.platform,
+        idempotency_key: `${job.publication_id}:${destination.key}`,
+        title: copy.title,
+        text: copy.plain,
+        html: copy.html,
+        event: {
+          ...context.payload,
+          balance: context.balance,
+          attendees: context.attendees,
+        },
+        actions: {
+          going_url: copy.goingUrl,
+          not_going_url: copy.notGoingUrl,
+        },
+      }),
+    })
+  } catch (reason) {
+    throw new TerminalPublishError(
+      `Make webhook outcome is ambiguous: ${errorMessage(reason)}`,
+    )
+  }
 
   const raw = await response.text()
   let payload: JsonRecord = {}
@@ -968,8 +982,8 @@ async function publishMake(
   }
 
   if (!response.ok) {
-    throw new Error(
-      `Make social webhook failed: ${response.status} ${response.statusText}`,
+    throw new TerminalPublishError(
+      `Make social webhook failed after request: ${response.status} ${response.statusText}`,
     )
   }
 
@@ -1017,7 +1031,7 @@ async function publishJob(
   }
 
   if (destination.publisher === 'make_webhook') {
-    return publishMake(destination, context, copy)
+    return publishMake(job, destination, context, copy)
   }
 
   throw new TerminalPublishError(
