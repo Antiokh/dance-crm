@@ -5,11 +5,12 @@
 Apply the canonical migrations in timestamp order:
 
 1. `supabase/migrations/20260927133000_social_command_queue.sql`
-2. `supabase/migrations/20260927134000_event_social_publications.sql`
-3. `supabase/migrations/20260927141000_social_dispatch_worker.sql`
-4. `supabase/migrations/20260927142000_social_admin_ops.sql`
+2. `supabase/migrations/20260927134000_social_publishing_core.sql`
+3. consumer adapter, for Dance CRM: `supabase/migrations/20260927134500_event_social_adapter.sql`
+4. `supabase/migrations/20260927141000_social_dispatch_worker.sql`
+5. `supabase/migrations/20260927142000_social_admin_ops.sql`
 
-The first migration creates the exposed durable command boundary. The second creates the non-exposed `social` schema and delivery state. The last two install worker scheduling and safe admin operations.
+The first migration creates the exposed durable command boundary. The second creates the non-exposed reusable `social` schema and delivery state without any Dance CRM table references. The consumer adapter owns event snapshot materialization and triggers. The last two install worker scheduling and safe admin operations.
 
 The target Supabase API configuration must **not** expose the `social` schema. Dance CRM currently exposes only `public` and `graphql_public`.
 
