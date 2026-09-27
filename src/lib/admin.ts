@@ -62,6 +62,49 @@ export type AdminEvent = {
   cancelled_at: string | null
 }
 
+export type AdminEventTemplate = {
+  id: string
+  name: string
+  event_type: 'party' | 'open_class'
+  title: string
+  description: string | null
+  duration_minutes: number | null
+  venue_id: string | null
+  style_id: number | null
+  active: boolean
+}
+
+export type AdminEventWeatherForecast = {
+  provider: 'openweather'
+  requested_at: string
+  forecast_at: string
+  city_name: string | null
+  temperature_c: number | null
+  feels_like_c: number | null
+  humidity_pct: number | null
+  condition: string | null
+  description: string | null
+  icon: string | null
+  precipitation_probability_pct: number | null
+  rain_3h_mm: number | null
+  snow_3h_mm: number | null
+  wind_speed_mps: number | null
+  wind_gust_mps: number | null
+  wind_direction_deg: number | null
+}
+
+export type AdminEventWeatherResult =
+  | {
+      available: true
+      forecast: AdminEventWeatherForecast
+    }
+  | {
+      available: false
+      reason: string
+      available_from: string | null
+      available_until: string | null
+    }
+
 export type AdminVenue = {
   id: string
   name: string
@@ -100,6 +143,7 @@ export type AdminCatalog = {
   dancers: AdminDancer[]
   groups: AdminGroup[]
   events: AdminEvent[]
+  event_templates: AdminEventTemplate[]
   venues: AdminVenue[]
   styles: AdminStyle[]
   levels: AdminLevel[]
@@ -207,6 +251,7 @@ export async function loadAdminCatalog(): Promise<AdminCatalog> {
     groupsResult,
     trainerLinksResult,
     eventsResult,
+    eventTemplatesResult,
     venuesResult,
     stylesResult,
     levelsResult,
@@ -224,6 +269,11 @@ export async function loadAdminCatalog(): Promise<AdminCatalog> {
       .from('dance_events')
       .select('id, event_type, title, description, starts_at, ends_at, venue_id, style_id, published, cancelled_at')
       .order('starts_at'),
+    supabase
+      .from('event_templates')
+      .select('id, name, event_type, title, description, duration_minutes, venue_id, style_id, active')
+      .order('active', { ascending: false })
+      .order('name'),
     supabase
       .from('venues')
       .select('id, name, address, latitude, longitude, capacity, notes, active')
@@ -247,6 +297,7 @@ export async function loadAdminCatalog(): Promise<AdminCatalog> {
     groupsResult,
     trainerLinksResult,
     eventsResult,
+    eventTemplatesResult,
     venuesResult,
     stylesResult,
     levelsResult,
@@ -317,6 +368,18 @@ export async function loadAdminCatalog(): Promise<AdminCatalog> {
     cancelled_at: stringOrNull(row.cancelled_at),
   }))
 
+  const event_templates: AdminEventTemplate[] = (eventTemplatesResult.data ?? []).map((row) => ({
+    id: String(row.id),
+    name: String(row.name),
+    event_type: row.event_type === 'open_class' ? 'open_class' : 'party',
+    title: String(row.title),
+    description: stringOrNull(row.description),
+    duration_minutes: numberOrNull(row.duration_minutes),
+    venue_id: stringOrNull(row.venue_id),
+    style_id: numberOrNull(row.style_id),
+    active: row.active === true,
+  }))
+
   const venues: AdminVenue[] = (venuesResult.data ?? []).map((row) => ({
     id: String(row.id),
     name: String(row.name),
@@ -357,7 +420,7 @@ export async function loadAdminCatalog(): Promise<AdminCatalog> {
     description: stringOrNull(row.description),
   }))
 
-  return { dancers, groups, events, venues, styles, levels }
+  return { dancers, groups, events, event_templates, venues, styles, levels }
 }
 
 export type AdminDancerPayload = {
@@ -540,6 +603,141 @@ export async function saveAdminEvent(input: AdminEventInput) {
     .single()
   if (error) throw error
   return String(data.id)
+}
+
+export type AdminEventTemplateInput = Omit<AdminEventTemplate, 'id'> & {
+  id: string | null
+}
+
+export async function saveAdminEventTemplate(input: AdminEventTemplateInput) {
+  const values = {
+    name: input.name.trim(),
+    event_type: input.event_type,
+    title: input.title.trim(),
+    description: input.description?.trim() || null,
+    duration_minutes: input.duration_minutes,
+    venue_id: input.venue_id,
+    style_id: input.style_id,
+    active: input.active,
+  }
+
+  if (!values.name) throw new Error('Укажите название шаблона')
+  if (!values.title) throw new Error('Укажите название события')
+
+  if (input.id) {
+    const { error } = await supabase
+      .from('event_templates')
+      .update(values)
+      .eq('id', input.id)
+    if (error) throw error
+    return input.id
+  }
+
+  const { data, error } = await supabase
+    .from('event_templates')
+    .insert(values)
+    .select('id')
+    .single()
+  if (error) throw error
+  return String(data.id)
+}
+
+export function eventDurationMinutes(startsLocal: string, endsLocal: string) {
+  const startsAt = localInputToIso(startsLocal)
+  const endsAt = localInputToIso(endsLocal)
+  if (!startsAt || !endsAt) return null
+  const minutes = Math.round(
+    (new Date(endsAt).getTime() - new Date(startsAt).getTime()) / 60_000,
+  )
+  return minutes > 0 ? minutes : null
+}
+
+export function addLocalMinutes(value: string, minutes: number | null) {
+  if (!value || !minutes || minutes <= 0) return ''
+  const startsAt = localInputToIso(value)
+  if (!startsAt) return ''
+  return isoToLocalInput(
+    new Date(new Date(startsAt).getTime() + minutes * 60_000).toISOString(),
+  )
+}
+
+export async function loadAdminEventWeather(
+  venue: Pick<AdminVenue, 'latitude' | 'longitude'>,
+  startsLocal: string,
+): Promise<AdminEventWeatherResult> {
+  if (
+    venue.latitude === null
+    || venue.longitude === null
+    || !startsLocal
+  ) {
+    return {
+      available: false,
+      reason: 'missing_input',
+      available_from: null,
+      available_until: null,
+    }
+  }
+
+  const startsAt = localInputToIso(startsLocal)
+  if (!startsAt) {
+    return {
+      available: false,
+      reason: 'missing_input',
+      available_from: null,
+      available_until: null,
+    }
+  }
+
+  const { data, error } = await supabase.functions.invoke('event-weather', {
+    body: {
+      latitude: venue.latitude,
+      longitude: venue.longitude,
+      starts_at: startsAt,
+    },
+  })
+
+  if (error) throw error
+
+  const payload = asRecord(data)
+  if (!payload) throw new Error('Weather response is invalid')
+
+  if (payload.available !== true) {
+    return {
+      available: false,
+      reason: typeof payload.reason === 'string' ? payload.reason : 'unavailable',
+      available_from: stringOrNull(payload.available_from),
+      available_until: stringOrNull(payload.available_until),
+    }
+  }
+
+  const forecast = asRecord(payload.forecast)
+  if (!forecast || forecast.provider !== 'openweather') {
+    throw new Error('Weather forecast is invalid')
+  }
+
+  return {
+    available: true,
+    forecast: {
+      provider: 'openweather',
+      requested_at: String(forecast.requested_at),
+      forecast_at: String(forecast.forecast_at),
+      city_name: stringOrNull(forecast.city_name),
+      temperature_c: numberOrNull(forecast.temperature_c),
+      feels_like_c: numberOrNull(forecast.feels_like_c),
+      humidity_pct: numberOrNull(forecast.humidity_pct),
+      condition: stringOrNull(forecast.condition),
+      description: stringOrNull(forecast.description),
+      icon: stringOrNull(forecast.icon),
+      precipitation_probability_pct: numberOrNull(
+        forecast.precipitation_probability_pct,
+      ),
+      rain_3h_mm: numberOrNull(forecast.rain_3h_mm),
+      snow_3h_mm: numberOrNull(forecast.snow_3h_mm),
+      wind_speed_mps: numberOrNull(forecast.wind_speed_mps),
+      wind_gust_mps: numberOrNull(forecast.wind_gust_mps),
+      wind_direction_deg: numberOrNull(forecast.wind_direction_deg),
+    },
+  }
 }
 
 export type AdminVenueInput = Omit<AdminVenue, 'id'> & {
