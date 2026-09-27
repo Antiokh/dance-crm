@@ -43,3 +43,39 @@
   letter-spacing: 0;
   text-transform: none;
 }
+
+
+.dancer-home-time {
+  display: inline-flex;
+  min-width: 52px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  color: var(
+    --tg-theme-accent-text-color,
+    var(--tg-theme-link-color, #2481cc)
+  );
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dancer-home-pin {
+  display: grid;
+  min-width: 44px;
+  min-height: 44px;
+  place-items: center;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.dancer-home-more-cell {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(
+    --tg-theme-accent-text-color,
+    var(--tg-theme-link-color, #2481cc)
+  );
+  text-align: left;
+}
