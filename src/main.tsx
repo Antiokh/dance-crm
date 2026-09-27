@@ -16,6 +16,7 @@ import './telegram-navigation.css'
 import '@telegram-apps/telegram-ui/dist/styles.css'
 import './telegram-ui.css'
 import './auth-shell.css'
+import './admin.css'
 
 initializeTma()
 

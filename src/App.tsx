@@ -8,6 +8,7 @@ import {
   Tabbar,
   TabsList,
 } from '@telegram-apps/telegram-ui'
+import AdminProfile, { type AdminView } from './AdminProfile'
 import TelegramSwitch from './components/TelegramSwitch'
 import {
   authenticateTelegram,
@@ -365,13 +366,16 @@ function DancerHome({
     )
   }
 
+  const data = state.data
+  if (!data) return null
+
   const todayItems: TodayItem[] = [
-    ...state.data.today_events.map((event) => ({
+    ...data.today_events.map((event) => ({
       kind: 'event' as const,
       startsAt: event.starts_at,
       event,
     })),
-    ...state.data.today_classes.map((item) => ({
+    ...data.today_classes.map((item) => ({
       kind: 'class' as const,
       startsAt: item.starts_at,
       item,
@@ -381,9 +385,9 @@ function DancerHome({
   ))
 
   const visibleEvents = eventsExpanded
-    ? state.data.events
-    : state.data.events.slice(0, 2)
-  const hiddenEventCount = Math.max(0, state.data.events.length - 2)
+    ? data.events
+    : data.events.slice(0, 2)
+  const hiddenEventCount = Math.max(0, data.events.length - 2)
 
   const eventAttending = (event: DanceEvent) =>
     eventOverrides[event.id] ?? event.attending
@@ -531,10 +535,10 @@ function DancerHome({
         </div>
       )}
 
-      {state.data.attention.length > 0 && (
+      {data.attention.length > 0 && (
         <Section className="tgui-section dancer-home-attention">
           <List className="tgui-trip-list">
-            {state.data.attention.map((item) => {
+            {data.attention.map((item) => {
               const event = item.event
               const attending = event ? eventAttending(event) : false
               const pending = event
@@ -711,8 +715,8 @@ function DancerHome({
 
       <Section className="tgui-section" header="Ближайшие занятия">
         <List className="tgui-trip-list">
-          {state.data.classes.length > 0 ? (
-            state.data.classes.map((item) => {
+          {data.classes.length > 0 ? (
+            data.classes.map((item) => {
               const attend = classAttendState(item)
               const pending = Boolean(
                 pendingActions[`class:${item.id}`],
@@ -788,6 +792,9 @@ function InfoPage({ state }: { state: SchoolState }) {
     )
   }
 
+  const data = state.data
+  if (!data) return null
+
   return (
     <section className="tgui-page dancer-school-page">
       <TabsList className="tgui-city-tabs dancer-school-tabs">
@@ -808,7 +815,7 @@ function InfoPage({ state }: { state: SchoolState }) {
       {view === 'groups' && (
         <Section className="tgui-section">
           <List className="tgui-trip-list">
-            {state.data.groups.length > 0 ? state.data.groups.map((group) => (
+            {data.groups.length > 0 ? data.groups.map((group) => (
               <Cell
                 key={group.id}
                 className="tgui-trip-cell"
@@ -832,7 +839,7 @@ function InfoPage({ state }: { state: SchoolState }) {
       {view === 'trainers' && (
         <Section className="tgui-section">
           <List className="tgui-trip-list">
-            {state.data.trainers.length > 0 ? state.data.trainers.map((trainer) => (
+            {data.trainers.length > 0 ? data.trainers.map((trainer) => (
               <Cell
                 key={trainer.id}
                 className="tgui-trip-cell"
@@ -850,7 +857,7 @@ function InfoPage({ state }: { state: SchoolState }) {
       {view === 'venues' && (
         <Section className="tgui-section">
           <List className="tgui-trip-list">
-            {state.data.venues.length > 0 ? state.data.venues.map((venue) => (
+            {data.venues.length > 0 ? data.venues.map((venue) => (
               <Cell
                 key={venue.id}
                 className="tgui-trip-cell"
@@ -869,7 +876,7 @@ function InfoPage({ state }: { state: SchoolState }) {
       {view === 'styles' && (
         <Section className="tgui-section">
           <List className="tgui-trip-list">
-            {state.data.styles.length > 0 ? state.data.styles.map((style) => (
+            {data.styles.length > 0 ? data.styles.map((style) => (
               <Cell
                 key={style.id}
                 className="tgui-trip-cell"
@@ -904,9 +911,12 @@ function ProfilePage({ state }: { state: ProfileState }) {
     )
   }
 
+  const data = state.data
+  if (!data) return null
+
   const activeSubscription =
-    state.data.subscriptions.find((item) => item.effectiveStatus === 'active')
-    ?? state.data.subscriptions[0]
+    data.subscriptions.find((item) => item.effectiveStatus === 'active')
+    ?? data.subscriptions[0]
     ?? null
 
   return (
@@ -941,7 +951,7 @@ function ProfilePage({ state }: { state: ProfileState }) {
 
       <Section className="tgui-section" header="Посещённые занятия">
         <List className="tgui-trip-list">
-          {state.data.attendedClasses.length > 0 ? state.data.attendedClasses.map((item) => (
+          {data.attendedClasses.length > 0 ? data.attendedClasses.map((item) => (
             <Cell
               key={item.id}
               className="tgui-trip-cell"
@@ -1002,6 +1012,39 @@ function viewTitle(view: RootView) {
   return 'Активности'
 }
 
+function adminViewTitle(view: AdminView) {
+  if (view === 'schedule') return 'Расписание'
+  if (view === 'settings') return 'Настройки'
+  return 'Танцоры'
+}
+
+function AdminNavIcon({ view }: { view: AdminView }) {
+  if (view === 'dancers') {
+    return (
+      <svg className="dancer-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="9" cy="8" r="3" />
+        <circle cx="17" cy="9" r="2.5" />
+        <path d="M3 20a6 6 0 0 1 12 0M14 20a5 5 0 0 1 7 0" />
+      </svg>
+    )
+  }
+
+  if (view === 'schedule') {
+    return (
+      <svg className="dancer-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z" />
+      </svg>
+    )
+  }
+
+  return (
+    <svg className="dancer-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2v3M12 19v3M4.9 4.9 7 7M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1" />
+    </svg>
+  )
+}
+
 export default function App() {
   const telegramUser = useMemo(
     () => getNativeTelegramUser() ?? getTelegramUser(),
@@ -1009,8 +1052,10 @@ export default function App() {
   )
 
   const [auth, setAuth] = useState<AuthState>(initialAuth)
-  const [role] = useState<AppRole>('dancer')
+  const [role, setRole] = useState<AppRole>('dancer')
+  const [roleMenuOpen, setRoleMenuOpen] = useState(false)
   const [view, setView] = useState<RootView>('info')
+  const [adminView, setAdminView] = useState<AdminView>('dancers')
   const [loading, setLoading] = useState(true)
   const [feed, setFeed] = useState<FeedState>({
     status: 'idle',
@@ -1040,6 +1085,7 @@ export default function App() {
         if (cancelled) return
         setAuth(next)
         if (next.status === 'authenticated') {
+          setRole('dancer')
           setView('activities')
         }
       })
@@ -1131,6 +1177,26 @@ export default function App() {
     }
   }, [auth.status, view])
 
+  const availableModes = useMemo<AppRole[]>(() => {
+    if (auth.status !== 'authenticated') return []
+    return auth.context.roles.filter(
+      (item) => item === 'dancer' || item === 'administrator',
+    )
+  }, [auth])
+
+  useEffect(() => {
+    if (auth.status !== 'authenticated') {
+      setRoleMenuOpen(false)
+      return
+    }
+
+    if (availableModes.includes(role)) return
+
+    setRole('dancer')
+    setView('activities')
+    setRoleMenuOpen(false)
+  }, [auth.status, availableModes, role])
+
   const showBottomNav = auth.status === 'authenticated' && !loading
 
   useEffect(() => {
@@ -1161,13 +1227,55 @@ export default function App() {
     }
   }, [showBottomNav])
 
-  const switchView = (next: RootView) => {
-    setView(next)
+  const scrollRootToTop = () => {
     window.requestAnimationFrame(() => {
       document.querySelector<HTMLElement>('.app-shell > main')?.scrollTo({
         top: 0,
       })
     })
+  }
+
+  const switchView = (next: RootView) => {
+    setView(next)
+    scrollRootToTop()
+  }
+
+  const switchAdminView = (next: AdminView) => {
+    setAdminView(next)
+    scrollRootToTop()
+  }
+
+  const chooseRole = (next: AppRole) => {
+    if (!availableModes.includes(next)) return
+
+    setRole(next)
+    setRoleMenuOpen(false)
+
+    if (next === 'administrator') {
+      setAdminView('dancers')
+    } else {
+      setView('activities')
+    }
+
+    scrollRootToTop()
+  }
+
+  const openDancerProfile = () => {
+    setRole('dancer')
+    setView('profile')
+    setRoleMenuOpen(false)
+    scrollRootToTop()
+  }
+
+  const handleAccountClick = () => {
+    if (auth.status !== 'authenticated') return
+
+    if (availableModes.length > 1) {
+      setRoleMenuOpen((open) => !open)
+      return
+    }
+
+    openDancerProfile()
   }
 
   const buildLabel =
@@ -1186,6 +1294,10 @@ export default function App() {
   )
 
   const mainContent = () => {
+    if (auth.status === 'authenticated' && role === 'administrator') {
+      return <AdminProfile view={adminView} />
+    }
+
     if (view === 'info') {
       return <InfoPage state={school} />
     }
@@ -1220,7 +1332,7 @@ export default function App() {
           <div className="eyebrow">
             DANCERS <span className="build-inline">· {buildLabel}</span>
           </div>
-          <h1>{viewTitle(view)}</h1>
+          <h1>{role === 'administrator' ? adminViewTitle(adminView) : viewTitle(view)}</h1>
         </div>
 
         {dancer || telegramUser ? (
@@ -1228,8 +1340,15 @@ export default function App() {
             <button
               type="button"
               className="account-trigger"
-              onClick={() => auth.status === 'authenticated' && switchView('profile')}
-              aria-label="Открыть профиль"
+              onClick={handleAccountClick}
+              aria-label={
+                availableModes.length > 1
+                  ? 'Аккаунт и режим'
+                  : 'Открыть профиль'
+              }
+              aria-expanded={
+                availableModes.length > 1 ? roleMenuOpen : undefined
+              }
             >
               <span className="account-copy">
                 <strong>{name}</strong>
@@ -1255,13 +1374,130 @@ export default function App() {
                 )}
               </span>
             </button>
+
+            {auth.status === 'authenticated'
+              && availableModes.length > 1
+              && roleMenuOpen ? (
+                <>
+                  <button
+                    type="button"
+                    className="account-menu-backdrop"
+                    onClick={() => setRoleMenuOpen(false)}
+                    aria-label="Закрыть меню"
+                  />
+                  <div className="account-menu">
+                    <Section className="tgui-account-menu-section">
+                      {role === 'dancer' ? (
+                        <Cell
+                          Component="button"
+                          className={
+                            view === 'profile'
+                              ? 'tgui-account-profile-cell tgui-account-profile-active'
+                              : 'tgui-account-profile-cell'
+                          }
+                          before={
+                            <span className="avatar compact" aria-hidden="true">
+                              {telegramUser?.photo_url ? (
+                                <img
+                                  src={telegramUser.photo_url}
+                                  alt=""
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                initials(auth.context.dancer)
+                              )}
+                            </span>
+                          }
+                          subtitle={
+                            auth.context.dancer.telegram_username
+                              ? `@${auth.context.dancer.telegram_username}`
+                              : 'Telegram'
+                          }
+                          after={<span className="menu-chevron">›</span>}
+                          onClick={openDancerProfile}
+                        >
+                          {name}
+                        </Cell>
+                      ) : (
+                        <Cell
+                          className="tgui-account-profile-cell"
+                          before={
+                            <span className="avatar compact" aria-hidden="true">
+                              {telegramUser?.photo_url ? (
+                                <img
+                                  src={telegramUser.photo_url}
+                                  alt=""
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                initials(auth.context.dancer)
+                              )}
+                            </span>
+                          }
+                          subtitle={roleLabels[role]}
+                        >
+                          {name}
+                        </Cell>
+                      )}
+                    </Section>
+
+                    <Section className="tgui-account-menu-section">
+                      {availableModes.map((item) => (
+                        <Cell
+                          key={item}
+                          Component="button"
+                          className={
+                            role === item
+                              ? 'tgui-account-role tgui-account-role-active'
+                              : 'tgui-account-role'
+                          }
+                          after={
+                            role === item
+                              ? <span className="menu-check">✓</span>
+                              : undefined
+                          }
+                          onClick={() => chooseRole(item)}
+                        >
+                          {roleLabels[item]}
+                        </Cell>
+                      ))}
+                    </Section>
+                  </div>
+                </>
+              ) : null}
           </div>
         ) : null}
       </header>
 
       <main>{mainContent()}</main>
 
-      {showBottomNav && (
+      {showBottomNav && role === 'administrator' && (
+        <Tabbar className="tgui-bottom-nav">
+          <Tabbar.Item
+            selected={adminView === 'dancers'}
+            text="Танцоры"
+            onClick={() => switchAdminView('dancers')}
+          >
+            <AdminNavIcon view="dancers" />
+          </Tabbar.Item>
+          <Tabbar.Item
+            selected={adminView === 'schedule'}
+            text="Расписание"
+            onClick={() => switchAdminView('schedule')}
+          >
+            <AdminNavIcon view="schedule" />
+          </Tabbar.Item>
+          <Tabbar.Item
+            selected={adminView === 'settings'}
+            text="Настройки"
+            onClick={() => switchAdminView('settings')}
+          >
+            <AdminNavIcon view="settings" />
+          </Tabbar.Item>
+        </Tabbar>
+      )}
+
+      {showBottomNav && role !== 'administrator' && (
         <Tabbar className="tgui-bottom-nav">
           <Tabbar.Item
             selected={view === 'activities'}
