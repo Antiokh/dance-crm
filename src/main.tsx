@@ -12,8 +12,6 @@ import {
   subscribeAppAppearance,
 } from './lib/tma'
 import './styles.css'
-import './mobile-layout.css'
-import './form-controls.css'
 import './telegram-navigation.css'
 import '@telegram-apps/telegram-ui/dist/styles.css'
 import './telegram-ui.css'

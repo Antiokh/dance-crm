@@ -31,6 +31,12 @@ const roleLabels: Record<AppRole, string> = {
   administrator: 'Администратор',
 }
 
+function highestAvailableRole(roles: AppRole[]): AppRole {
+  if (roles.includes('administrator')) return 'administrator'
+  if (roles.includes('trainer')) return 'trainer'
+  return 'dancer'
+}
+
 function displayName(dancer: DancerSummary) {
   if (dancer.custom_name?.trim()) return dancer.custom_name.trim()
 
@@ -85,6 +91,7 @@ export default function App() {
     [],
   )
   const [auth, setAuth] = useState<AuthState>(initialAuth)
+  const [role, setRole] = useState<AppRole>('dancer')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -92,7 +99,11 @@ export default function App() {
 
     void authenticateTelegram()
       .then((next) => {
-        if (!cancelled) setAuth(next)
+        if (cancelled) return
+        setAuth(next)
+        if (next.status === 'authenticated') {
+          setRole(highestAvailableRole(next.context.roles))
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -138,7 +149,7 @@ export default function App() {
                   {loading
                     ? 'Вход…'
                     : auth.status === 'authenticated'
-                      ? auth.context.roles.map((role) => roleLabels[role]).join(' · ')
+                      ? roleLabels[role]
                       : 'Telegram'}
                 </span>
               </span>
