@@ -2,6 +2,8 @@
 -- The cron exists in every environment but remains inert until an administrator
 -- configures that environment's own Edge Function URL.
 
+create extension if not exists pg_cron;
+create extension if not exists pg_net with schema extensions;
 create extension if not exists supabase_vault with schema vault;
 
 do $$
