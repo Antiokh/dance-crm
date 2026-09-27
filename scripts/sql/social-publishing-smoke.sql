@@ -51,12 +51,17 @@ $$;
 create or replace function private.touch_updated_at()
 returns trigger
 language plpgsql
-as $$
+as $
 begin
   new.updated_at := now();
   return new;
 end;
-$$;
+$;
+
+grant usage on schema extensions, auth, private
+  to authenticated, service_role;
+grant execute on all functions in schema extensions, auth, private
+  to authenticated, service_role;
 
 create table public.venues (
   id uuid primary key,
