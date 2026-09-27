@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Cell,
   List,
@@ -27,6 +27,10 @@ import {
   type HomeStyle,
 } from './lib/homeFeed'
 import {
+  getEventRsvpIntent,
+  setEventRsvpResponse,
+} from './lib/eventRsvp'
+import {
   loadDancerProfileData,
   type DancerProfileData,
 } from './lib/profile'
@@ -39,7 +43,11 @@ import {
   loadSchoolCatalog,
   type SchoolCatalog,
 } from './lib/school'
-import { getTelegramUser, setTelegramVerticalSwipesEnabled } from './lib/telegram'
+import {
+  getTelegramUser,
+  setTelegramVerticalSwipesEnabled,
+  showTelegramNotice,
+} from './lib/telegram'
 import { getNativeTelegramUser } from './lib/tma'
 
 const initialAuth: AuthState = {
@@ -1050,6 +1058,8 @@ export default function App() {
     () => getNativeTelegramUser() ?? getTelegramUser(),
     [],
   )
+  const eventRsvpIntent = useMemo(() => getEventRsvpIntent(), [])
+  const eventRsvpHandled = useRef(false)
 
   const [auth, setAuth] = useState<AuthState>(initialAuth)
   const [role, setRole] = useState<AppRole>('dancer')
@@ -1124,6 +1134,64 @@ export default function App() {
       cancelled = true
     }
   }, [auth.status])
+
+  useEffect(() => {
+    if (
+      auth.status !== 'authenticated'
+      || !eventRsvpIntent
+      || eventRsvpHandled.current
+    ) {
+      return
+    }
+
+    eventRsvpHandled.current = true
+    setRole('dancer')
+    setView('activities')
+
+    void setEventRsvpResponse(
+      eventRsvpIntent.eventId,
+      eventRsvpIntent.response,
+    )
+      .then(async (result) => {
+        if (eventRsvpIntent.source === 'web_query') {
+          const url = new URL(window.location.href)
+          url.searchParams.delete('event')
+          url.searchParams.delete('rsvp')
+          window.history.replaceState(
+            window.history.state,
+            '',
+            `${url.pathname}${url.search}${url.hash}`,
+          )
+        }
+
+        const role = result.role_id === 1
+          ? 'Leader'
+          : result.role_id === 2
+            ? 'Follower'
+            : null
+
+        showTelegramNotice(
+          eventRsvpIntent.response === 'going'
+            ? [
+                'Вы отметились: «Я приду».',
+                role ? `Роль: ${role}.` : null,
+                `Сейчас идут: ${result.going_count}.`,
+              ].filter(Boolean).join('\n')
+            : 'Вы отметились: «Я не приду».',
+          'Ответ сохранён',
+        )
+
+        const data = await loadDancerHomeFeed()
+        setFeed({ status: 'ready', data, error: null })
+      })
+      .catch((error: unknown) => {
+        eventRsvpHandled.current = false
+        showTelegramNotice(
+          error instanceof Error ? error.message : String(error),
+          'Не удалось сохранить ответ',
+        )
+      })
+  }, [auth.status, eventRsvpIntent])
 
   useEffect(() => {
     if (view !== 'info') return
