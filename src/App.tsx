@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Cell,
+  List,
   Placeholder,
   Section,
   Spinner,
@@ -11,9 +12,15 @@ import {
 } from './lib/auth'
 import type {
   AppRole,
-  DanceStyle,
   DancerSummary,
 } from './lib/dancerContext'
+import {
+  loadDancerHomeFeed,
+  type DanceEvent,
+  type DancerHomeFeed,
+  type GroupClass,
+  type HomeStyle,
+} from './lib/homeFeed'
 import { getTelegramUser } from './lib/telegram'
 import { getNativeTelegramUser, getTmaDiagnostics } from './lib/tma'
 
@@ -30,11 +37,10 @@ const roleLabels: Record<AppRole, string> = {
   administrator: 'Администратор',
 }
 
-function highestAvailableRole(roles: AppRole[]): AppRole {
-  if (roles.includes('administrator')) return 'administrator'
-  if (roles.includes('trainer')) return 'trainer'
-  return 'dancer'
-}
+type FeedState =
+  | { status: 'loading'; data: DancerHomeFeed | null; error: null }
+  | { status: 'ready'; data: DancerHomeFeed; error: null }
+  | { status: 'error'; data: null; error: string }
 
 function displayName(dancer: DancerSummary) {
   if (dancer.custom_name?.trim()) return dancer.custom_name.trim()
@@ -75,12 +81,160 @@ function telegramInitials(user: ReturnType<typeof getTelegramUser>) {
   return value || user.username?.slice(0, 2).toUpperCase() || 'D'
 }
 
-function styleTitle(style: DanceStyle) {
+function styleTitle(style: HomeStyle | null) {
+  if (!style) return null
   return (
     style.title_ru?.trim() ||
     style.title_en?.trim() ||
     style.title_sr?.trim() ||
-    `Style #${style.id}`
+    null
+  )
+}
+
+function dateParts(value: string) {
+  const date = new Date(value)
+
+  return {
+    day: new Intl.DateTimeFormat('ru-RU', {
+      day: '2-digit',
+    }).format(date),
+    weekday: new Intl.DateTimeFormat('ru-RU', {
+      weekday: 'short',
+    }).format(date).replace('.', ''),
+  }
+}
+
+function timeRange(startsAt: string, endsAt: string | null) {
+  const formatter = new Intl.DateTimeFormat('ru-RU', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+
+  const start = formatter.format(new Date(startsAt))
+  if (!endsAt) return start
+  return `${start}–${formatter.format(new Date(endsAt))}`
+}
+
+function eventTypeLabel(type: DanceEvent['event_type']) {
+  return type === 'party' ? 'Вечеринка' : 'Опен'
+}
+
+function eventSubtitle(event: DanceEvent) {
+  return [
+    timeRange(event.starts_at, event.ends_at),
+    event.venue?.name,
+  ].filter(Boolean).join(' · ')
+}
+
+function eventDescription(event: DanceEvent) {
+  return [
+    styleTitle(event.style),
+    event.description,
+  ].filter(Boolean).join(' · ') || undefined
+}
+
+function classSubtitle(item: GroupClass) {
+  return [
+    styleTitle(item.style),
+    timeRange(item.starts_at, item.ends_at),
+  ].filter(Boolean).join(' · ')
+}
+
+function classDescription(item: GroupClass) {
+  return [
+    item.group_level,
+    item.venue?.name,
+    item.booking_status === 'booked'
+      ? 'Записан'
+      : item.booking_status === 'waitlisted'
+        ? 'Лист ожидания'
+        : null,
+  ].filter(Boolean).join(' · ') || undefined
+}
+
+function DateBadge({ value, accented = false }: { value: string; accented?: boolean }) {
+  const parts = dateParts(value)
+  const className = accented
+    ? 'tgui-trip-date tgui-trip-date-today'
+    : 'tgui-trip-date'
+
+  return (
+    <span className={className}>
+      <strong>{parts.day}</strong>
+      <span>{parts.weekday}</span>
+    </span>
+  )
+}
+
+function DancerHome({ state }: { state: FeedState }) {
+  if (state.status === 'loading') {
+    return (
+      <Placeholder
+        header="Загружаю"
+        description="Получаем ближайшие события и занятия."
+      >
+        <Spinner size="m" />
+      </Placeholder>
+    )
+  }
+
+  if (state.status === 'error') {
+    return (
+      <Placeholder
+        header="Не удалось загрузить"
+        description={state.error}
+      />
+    )
+  }
+
+  return (
+    <>
+      <Section className="tgui-section" header="Ближайшие события">
+        <List className="tgui-trip-list">
+          {state.data.events.length > 0 ? (
+            state.data.events.map((event) => (
+              <Cell
+                key={event.id}
+                className="tgui-trip-cell"
+                before={<DateBadge value={event.starts_at} />}
+                hint={eventTypeLabel(event.event_type)}
+                subtitle={eventSubtitle(event)}
+                description={eventDescription(event)}
+              >
+                {event.title}
+              </Cell>
+            ))
+          ) : (
+            <Cell subtitle="Здесь появятся вечеринки и опены.">
+              Событий пока нет
+            </Cell>
+          )}
+        </List>
+      </Section>
+
+      <Section className="tgui-section" header="Ближайшие занятия">
+        <List className="tgui-trip-list">
+          {state.data.classes.length > 0 ? (
+            state.data.classes.map((item) => (
+              <Cell
+                key={item.id}
+                className="tgui-trip-cell"
+                before={<DateBadge value={item.starts_at} />}
+                hint="Занятие"
+                subtitle={classSubtitle(item)}
+                description={classDescription(item)}
+              >
+                {item.group_title}
+              </Cell>
+            ))
+          ) : (
+            <Cell subtitle="Появятся после добавления в группу и публикации расписания.">
+              Занятий пока нет
+            </Cell>
+          )}
+        </List>
+      </Section>
+    </>
   )
 }
 
@@ -89,20 +243,22 @@ export default function App() {
     () => getNativeTelegramUser() ?? getTelegramUser(),
     [],
   )
+
   const [auth, setAuth] = useState<AuthState>(initialAuth)
-  const [role, setRole] = useState<AppRole>('dancer')
+  const [role] = useState<AppRole>('dancer')
   const [loading, setLoading] = useState(true)
+  const [feed, setFeed] = useState<FeedState>({
+    status: 'loading',
+    data: null,
+    error: null,
+  })
 
   useEffect(() => {
     let cancelled = false
 
     void authenticateTelegram()
       .then((next) => {
-        if (cancelled) return
-        setAuth(next)
-        if (next.status === 'authenticated') {
-          setRole(highestAvailableRole(next.context.roles))
-        }
+        if (!cancelled) setAuth(next)
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -112,6 +268,33 @@ export default function App() {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    if (auth.status !== 'authenticated') return
+
+    let cancelled = false
+    setFeed({ status: 'loading', data: null, error: null })
+
+    void loadDancerHomeFeed()
+      .then((data) => {
+        if (!cancelled) {
+          setFeed({ status: 'ready', data, error: null })
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setFeed({
+            status: 'error',
+            data: null,
+            error: error instanceof Error ? error.message : String(error),
+          })
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [auth.status])
 
   const tma = getTmaDiagnostics()
   const buildLabel =
@@ -136,7 +319,7 @@ export default function App() {
           <div className="eyebrow">
             DANCERS <span className="build-inline">· {buildLabel}</span>
           </div>
-          <h1>Профиль</h1>
+          <h1>События</h1>
         </div>
 
         {dancer || telegramUser ? (
@@ -170,101 +353,38 @@ export default function App() {
         ) : null}
       </header>
 
-      <section className="tgui-page auth-shell-page">
-          {loading ? (
+      <section className="tgui-page">
+        {loading ? (
+          <Placeholder
+            header="Авторизация…"
+            description="Проверяем Telegram и создаём сессию DanceApp."
+          >
+            <Spinner size="m" />
+          </Placeholder>
+        ) : auth.status === 'error' ? (
+          <>
             <Placeholder
-              header="Авторизация…"
-              description="Проверяем Telegram и создаём сессию DanceApp."
-            >
-              <Spinner size="m" />
-            </Placeholder>
-          ) : auth.status === 'error' ? (
-            <>
-              <Placeholder
-                header="Не удалось войти"
-                description={auth.error}
-              />
-              <Section className="tgui-section" header="Диагностика">
-                <Cell>
-                  Runtime: {tma.isTelegram ? 'Telegram' : 'browser'}
-                </Cell>
-                <Cell>
-                  TMA: {tma.initialized ? 'initialized' : tma.error || 'not initialized'}
-                </Cell>
-                <Cell>Build: {buildLabel}</Cell>
-              </Section>
-            </>
-          ) : auth.status === 'preview' ? (
-            <>
-              <Placeholder
-                header="Browser preview"
-                description="Интерфейс загружен. Откройте Mini App из Telegram, чтобы проверить реальную авторизацию."
-              />
-              <Section className="tgui-section" header="Runtime">
-                <Cell>DanceApp: configured</Cell>
-                <Cell>
-                  TMA: {tma.isTelegram ? 'Telegram detected' : 'browser preview'}
-                </Cell>
-                <Cell>Build: {buildLabel}</Cell>
-              </Section>
-            </>
-          ) : (
-            <>
-              <Section className="tgui-section" header="Авторизация">
-                <Cell
-                  subtitle={
-                    dancer?.telegram_username
-                      ? `@${dancer.telegram_username}`
-                      : 'Telegram'
-                  }
-                  after={<strong>OK</strong>}
-                >
-                  {name}
-                </Cell>
-                <Cell
-                  subtitle="Supabase Auth session"
-                  after={<span className="auth-ok">Активна</span>}
-                >
-                  DanceApp
-                </Cell>
-                <Cell
-                  subtitle={String(dancer?.telegram_id ?? '—')}
-                  after={<span>{auth.context.roles.length}</span>}
-                >
-                  Telegram ID · ролей
-                </Cell>
-              </Section>
-
-              <Section className="tgui-section" header="Роли">
-                {auth.context.roles.map((role) => (
-                  <Cell key={role}>{roleLabels[role]}</Cell>
-                ))}
-              </Section>
-
-              <Section className="tgui-section" header="Танцевальные стили">
-                {auth.context.styles.length > 0 ? (
-                  <div className="auth-style-list">
-                    {auth.context.styles.map((style) => (
-                      <span className="auth-style-pill" key={style.id}>
-                        {styleTitle(style)}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <Cell subtitle="Профиль авторизован, стили пока не выбраны.">
-                    Нет выбранных стилей
-                  </Cell>
-                )}
-              </Section>
-
-              <Section className="tgui-section" header="Runtime">
-                <Cell>
-                  TMA: {tma.initialized ? 'initialized' : 'fallback'}
-                </Cell>
-                <Cell>Build: {buildLabel}</Cell>
-              </Section>
-            </>
-          )}
+              header="Не удалось войти"
+              description={auth.error}
+            />
+            <Section className="tgui-section" header="Диагностика">
+              <Cell>
+                Runtime: {tma.isTelegram ? 'Telegram' : 'browser'}
+              </Cell>
+              <Cell>
+                TMA: {tma.initialized ? 'initialized' : tma.error || 'not initialized'}
+              </Cell>
+              <Cell>Build: {buildLabel}</Cell>
+            </Section>
+          </>
+        ) : auth.status === 'preview' ? (
+          <Placeholder
+            header="Browser preview"
+            description="Откройте Mini App из Telegram, чтобы увидеть персональные события и занятия."
+          />
+        ) : (
+          <DancerHome state={feed} />
+        )}
       </section>
     </main>
   )
