@@ -332,9 +332,9 @@ begin
     end,
     v_publication.id::text || ':' || d.key,
     case
-      when v_publication.publication_type = 'cancelled' then 300
-      when v_publication.publication_type = 'rsvp_update' then 250
-      when v_publication.publication_type = 'announcement' then 200
+      when v_publication.publication_type = 'cancelled' then 400
+      when v_publication.publication_type in ('announcement', 'updated') then 300
+      when v_publication.publication_type = 'rsvp_update' then 200
       else 100
     end,
     d.max_attempts
