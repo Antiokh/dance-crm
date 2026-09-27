@@ -1,7 +1,12 @@
+-- Private publisher implementation. The public CRM remains the RLS-protected domain surface.
+create schema if not exists social;
+revoke all on schema social from public, anon, authenticated;
+grant usage on schema social to service_role;
+
 -- Durable, domain-driven social publication pipeline for dance events.
 -- Based on the reduced Dobri Visarun pipeline and RSLive delivery semantics.
 
-create table if not exists public.social_destinations (
+create table if not exists social.destinations (
   key text primary key,
   platform text not null,
   publisher text not null check (
@@ -23,12 +28,12 @@ create table if not exists public.social_destinations (
 );
 
 drop trigger if exists social_destinations_touch_updated_at
-  on public.social_destinations;
+  on social.destinations;
 create trigger social_destinations_touch_updated_at
-before update on public.social_destinations
+before update on social.destinations
 for each row execute function private.touch_updated_at();
 
-create table if not exists public.social_rate_limit_groups (
+create table if not exists social.rate_limit_groups (
   key text primary key,
   min_interval_ms integer not null default 1500
     check (min_interval_ms >= 0),
@@ -38,14 +43,15 @@ create table if not exists public.social_rate_limit_groups (
 );
 
 drop trigger if exists social_rate_limit_groups_touch_updated_at
-  on public.social_rate_limit_groups;
+  on social.rate_limit_groups;
 create trigger social_rate_limit_groups_touch_updated_at
-before update on public.social_rate_limit_groups
+before update on social.rate_limit_groups
 for each row execute function private.touch_updated_at();
 
-create table if not exists public.event_social_publications (
+create table if not exists social.publications (
   id uuid primary key default extensions.gen_random_uuid(),
-  event_id uuid not null references public.dance_events(id) on delete cascade,
+  source_type text not null check (btrim(source_type) <> ''),
+  source_id uuid not null,
   publication_type text not null check (
     publication_type in ('announcement', 'updated', 'cancelled', 'rsvp_update')
   ),
@@ -57,18 +63,18 @@ create table if not exists public.event_social_publications (
   ),
   created_at timestamptz not null default now(),
   completed_at timestamptz,
-  unique (event_id, version)
+  unique (source_type, source_id, version)
 );
 
 create index if not exists event_social_publications_event_idx
-  on public.event_social_publications (event_id, version desc);
+  on social.publications (source_type, source_id, version desc);
 
-create table if not exists public.social_publication_jobs (
+create table if not exists social.delivery_jobs (
   id uuid primary key default extensions.gen_random_uuid(),
   publication_id uuid not null
-    references public.event_social_publications(id) on delete cascade,
+    references social.publications(id) on delete cascade,
   destination_key text not null
-    references public.social_destinations(key) on delete restrict,
+    references social.destinations(key) on delete restrict,
   operation text not null default 'publish'
     check (operation in ('publish', 'edit')),
   idempotency_key text not null unique,
@@ -94,7 +100,7 @@ create table if not exists public.social_publication_jobs (
 );
 
 create index if not exists social_publication_jobs_ready_idx
-  on public.social_publication_jobs (
+  on social.delivery_jobs (
     status,
     available_at,
     priority desc,
@@ -102,38 +108,38 @@ create index if not exists social_publication_jobs_ready_idx
   );
 
 create index if not exists social_publication_jobs_lease_idx
-  on public.social_publication_jobs (lease_expires_at)
+  on social.delivery_jobs (lease_expires_at)
   where status = 'leased';
 
 drop trigger if exists social_publication_jobs_touch_updated_at
-  on public.social_publication_jobs;
+  on social.delivery_jobs;
 create trigger social_publication_jobs_touch_updated_at
-before update on public.social_publication_jobs
+before update on social.delivery_jobs
 for each row execute function private.touch_updated_at();
 
-alter table public.social_destinations enable row level security;
-alter table public.social_rate_limit_groups enable row level security;
-alter table public.event_social_publications enable row level security;
-alter table public.social_publication_jobs enable row level security;
+alter table social.destinations enable row level security;
+alter table social.rate_limit_groups enable row level security;
+alter table social.publications enable row level security;
+alter table social.delivery_jobs enable row level security;
 
-revoke all on public.social_destinations from anon, authenticated;
-revoke all on public.social_rate_limit_groups from anon, authenticated;
-revoke all on public.event_social_publications from anon, authenticated;
-revoke all on public.social_publication_jobs from anon, authenticated;
+revoke all on social.destinations from anon, authenticated;
+revoke all on social.rate_limit_groups from anon, authenticated;
+revoke all on social.publications from anon, authenticated;
+revoke all on social.delivery_jobs from anon, authenticated;
 
-grant all on public.social_destinations to service_role;
-grant all on public.social_rate_limit_groups to service_role;
-grant all on public.event_social_publications to service_role;
-grant all on public.social_publication_jobs to service_role;
+grant all on social.destinations to service_role;
+grant all on social.rate_limit_groups to service_role;
+grant all on social.publications to service_role;
+grant all on social.delivery_jobs to service_role;
 
-insert into public.social_rate_limit_groups (key, min_interval_ms)
+insert into social.rate_limit_groups (key, min_interval_ms)
 values
   ('telegram', 1100),
   ('meta_api', 2500),
   ('make', 1500)
 on conflict (key) do nothing;
 
-insert into public.social_destinations (
+insert into social.destinations (
   key,
   platform,
   publisher,
@@ -192,7 +198,7 @@ set platform = excluded.platform,
     display_name = excluded.display_name,
     rate_limit_group = excluded.rate_limit_group,
     min_interval_ms = excluded.min_interval_ms,
-    settings = public.social_destinations.settings || excluded.settings;
+    settings = social.destinations.settings || excluded.settings;
 
 create or replace function private.event_social_payload(
   p_event_id uuid
@@ -266,10 +272,10 @@ begin
     count(*) filter (where j.status = 'dead')::integer,
     count(*) filter (where j.status = 'cancelled')::integer
   into v_total, v_published, v_active, v_dead, v_cancelled
-  from public.social_publication_jobs j
+  from social.delivery_jobs j
   where j.publication_id = p_publication_id;
 
-  update public.event_social_publications p
+  update social.publications p
   set status = case
         when v_total = 0 then 'held'
         when v_active > 0 and v_published > 0 then 'partial'
@@ -301,19 +307,19 @@ security definer
 set search_path = ''
 as $function$
 declare
-  v_publication public.event_social_publications%rowtype;
+  v_publication social.publications%rowtype;
   v_inserted integer := 0;
 begin
   select *
   into v_publication
-  from public.event_social_publications p
+  from social.publications p
   where p.id = p_publication_id;
 
   if not found then
     raise exception 'social publication not found' using errcode = 'P0002';
   end if;
 
-  insert into public.social_publication_jobs (
+  insert into social.delivery_jobs (
     publication_id,
     destination_key,
     operation,
@@ -338,8 +344,9 @@ begin
       else 100
     end,
     d.max_attempts
-  from public.social_destinations d
+  from social.destinations d
   where d.enabled
+    and v_publication.source_type = 'event'
     and (
       v_publication.publication_type <> 'rsvp_update'
       or d.publisher = 'telegram_api'
@@ -348,10 +355,11 @@ begin
       v_publication.publication_type <> 'cancelled'
       or exists (
         select 1
-        from public.social_publication_jobs prior_job
-        join public.event_social_publications prior_publication
+        from social.delivery_jobs prior_job
+        join social.publications prior_publication
           on prior_publication.id = prior_job.publication_id
-        where prior_publication.event_id = v_publication.event_id
+        where prior_publication.source_type = v_publication.source_type
+          and prior_publication.source_id = v_publication.source_id
           and prior_publication.id <> v_publication.id
           and prior_job.destination_key = d.key
           and prior_job.status = 'published'
@@ -406,13 +414,14 @@ begin
   if p_publication_type = 'rsvp_update' then
     for v_old_publication_id in
       select p.id
-      from public.event_social_publications p
-      where p.event_id = p_event_id
+      from social.publications p
+      where p.source_type = 'event'
+        and p.source_id = p_event_id
         and p.publication_type = 'rsvp_update'
         and p.status in ('queued', 'held', 'partial')
       order by p.version desc
     loop
-      update public.social_publication_jobs j
+      update social.delivery_jobs j
       set status = 'cancelled',
           lease_owner = null,
           lease_expires_at = null,
@@ -420,20 +429,19 @@ begin
       where j.publication_id = v_old_publication_id
         and j.status in ('queued', 'retry');
 
-      perform private.refresh_event_social_publication_status(
-        v_old_publication_id
-      );
+      perform private.refresh_event_social_publication_status(v_old_publication_id);
     end loop;
   else
     for v_old_publication_id in
       select p.id
-      from public.event_social_publications p
-      where p.event_id = p_event_id
+      from social.publications p
+      where p.source_type = 'event'
+        and p.source_id = p_event_id
         and p.publication_type <> 'rsvp_update'
         and p.status in ('queued', 'held', 'partial')
       order by p.version desc
     loop
-      update public.social_publication_jobs j
+      update social.delivery_jobs j
       set status = 'cancelled',
           lease_owner = null,
           lease_expires_at = null,
@@ -441,27 +449,28 @@ begin
       where j.publication_id = v_old_publication_id
         and j.status in ('queued', 'retry');
 
-      perform private.refresh_event_social_publication_status(
-        v_old_publication_id
-      );
+      perform private.refresh_event_social_publication_status(v_old_publication_id);
     end loop;
   end if;
 
   select coalesce(max(p.version), 0) + 1
   into v_version
-  from public.event_social_publications p
-  where p.event_id = p_event_id;
+  from social.publications p
+  where p.source_type = 'event'
+    and p.source_id = p_event_id;
 
   v_payload := private.event_social_payload(p_event_id);
 
-  insert into public.event_social_publications (
-    event_id,
+  insert into social.publications (
+    source_type,
+    source_id,
     publication_type,
     version,
     transaction_id,
     payload
   )
   values (
+    'event',
     p_event_id,
     p_publication_type,
     v_version,
@@ -476,72 +485,63 @@ end;
 $function$;
 
 revoke all on function private.queue_event_social_publication(
-  uuid,
-  text,
-  bigint
+  uuid, text, bigint
 ) from public, anon, authenticated;
 
 create or replace function private.event_social_change_trigger()
 returns trigger
 language plpgsql
-security definer
+security invoker
 set search_path = ''
 as $function$
 declare
-  v_type text;
-  v_publication_id uuid;
+  v_command_type text;
+  v_operation text;
+  v_priority integer := 300;
 begin
   if tg_op = 'INSERT' then
     if new.published and new.cancelled_at is null then
-      perform private.queue_event_social_publication(
+      perform public.enqueue_social_command(
+        'social.publish',
+        'event',
         new.id,
         'announcement',
-        txid_current()
+        jsonb_build_object('transaction_id', txid_current()),
+        300
       );
     end if;
     return new;
   end if;
 
   if old.published and not new.published then
-    update public.social_publication_jobs j
-    set status = 'cancelled',
-        lease_owner = null,
-        lease_expires_at = null,
-        last_error = 'Event was unpublished before delivery'
-    where j.publication_id in (
-      select p.id
-      from public.event_social_publications p
-      where p.event_id = new.id
-    )
-      and j.status in ('queued', 'retry');
-
-    for v_publication_id in
-      select p.id
-      from public.event_social_publications p
-      where p.event_id = new.id
-        and p.status in ('queued', 'held', 'partial')
-    loop
-      perform private.refresh_event_social_publication_status(
-        v_publication_id
-      );
-    end loop;
-
+    perform public.enqueue_social_command(
+      'social.unpublish',
+      'event',
+      new.id,
+      'unpublished',
+      jsonb_build_object('transaction_id', txid_current()),
+      400
+    );
     return new;
   end if;
 
   if old.cancelled_at is null and new.cancelled_at is not null
     and (old.published or new.published)
   then
-    v_type := 'cancelled';
+    v_command_type := 'social.cancel';
+    v_operation := 'cancelled';
+    v_priority := 400;
   elsif old.cancelled_at is not null
     and new.cancelled_at is null
     and new.published
   then
-    v_type := 'updated';
+    v_command_type := 'social.update';
+    v_operation := 'updated';
   elsif not old.published and new.published
     and new.cancelled_at is null
   then
-    v_type := 'announcement';
+    v_command_type := 'social.publish';
+    v_operation := 'announcement';
   elsif new.published
     and new.cancelled_at is null
     and (
@@ -555,14 +555,18 @@ begin
       or old.style_id is distinct from new.style_id
     )
   then
-    v_type := 'updated';
+    v_command_type := 'social.update';
+    v_operation := 'updated';
   end if;
 
-  if v_type is not null then
-    perform private.queue_event_social_publication(
+  if v_command_type is not null then
+    perform public.enqueue_social_command(
+      v_command_type,
+      'event',
       new.id,
-      v_type,
-      txid_current()
+      v_operation,
+      jsonb_build_object('transaction_id', txid_current()),
+      v_priority
     );
   end if;
 
@@ -593,7 +597,7 @@ for each row execute function private.event_social_change_trigger();
 create or replace function private.event_attendance_social_trigger()
 returns trigger
 language plpgsql
-security definer
+security invoker
 set search_path = ''
 as $function$
 declare
@@ -630,10 +634,13 @@ begin
         and e.cancelled_at is null
         and coalesce(e.ends_at, e.starts_at) > now()
     ) then
-      perform private.queue_event_social_publication(
+      perform public.enqueue_social_command(
+        'social.rsvp_update',
+        'event',
         v_event_id,
         'rsvp_update',
-        txid_current()
+        jsonb_build_object('transaction_id', txid_current()),
+        200
       );
     end if;
   end if;
@@ -661,15 +668,32 @@ language plpgsql
 security invoker
 set search_path = ''
 as $function$
+declare
+  v_command_type text;
 begin
   if not private.has_app_role('administrator'::public.app_role) then
     raise exception 'administrator role required' using errcode = '42501';
   end if;
 
-  return private.queue_event_social_publication(
+  v_command_type := case p_publication_type
+    when 'announcement' then 'social.publish'
+    when 'updated' then 'social.update'
+    when 'cancelled' then 'social.cancel'
+    when 'rsvp_update' then 'social.rsvp_update'
+    else null
+  end;
+
+  if v_command_type is null then
+    raise exception 'invalid publication type' using errcode = '22023';
+  end if;
+
+  return public.enqueue_social_command(
+    v_command_type,
+    'event',
     p_event_id,
     p_publication_type,
-    txid_current()
+    '{}'::jsonb,
+    case when p_publication_type = 'cancelled' then 400 else 300 end
   );
 end;
 $function$;
@@ -678,6 +702,130 @@ revoke all on function public.admin_queue_event_social_publication(uuid, text)
   from public, anon;
 grant execute on function public.admin_queue_event_social_publication(uuid, text)
   to authenticated;
+
+create or replace function public.social_process_command(
+  p_command_id uuid,
+  p_worker text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_command public.social_commands%rowtype;
+  v_publication_type text;
+  v_publication_id uuid;
+  v_publication uuid;
+begin
+  select *
+  into v_command
+  from public.social_commands c
+  where c.id = p_command_id
+    and c.status = 'leased'
+    and c.lease_owner = p_worker
+  for update;
+
+  if not found then
+    raise exception 'leased social command not found' using errcode = 'P0002';
+  end if;
+
+  if v_command.source_type <> 'event' then
+    raise exception 'unsupported social source type: %', v_command.source_type
+      using errcode = '22023';
+  end if;
+
+  if v_command.command_type = 'social.unpublish' then
+    update social.delivery_jobs j
+    set status = 'cancelled',
+        lease_owner = null,
+        lease_expires_at = null,
+        last_error = 'Source was unpublished before delivery'
+    where j.publication_id in (
+      select p.id
+      from social.publications p
+      where p.source_type = v_command.source_type
+        and p.source_id = v_command.source_id
+    )
+      and j.status in ('queued', 'retry');
+
+    for v_publication in
+      select p.id
+      from social.publications p
+      where p.source_type = v_command.source_type
+        and p.source_id = v_command.source_id
+        and p.status in ('queued', 'held', 'partial')
+    loop
+      perform private.refresh_event_social_publication_status(v_publication);
+    end loop;
+  else
+    v_publication_type := case v_command.operation
+      when 'announcement' then 'announcement'
+      when 'updated' then 'updated'
+      when 'cancelled' then 'cancelled'
+      when 'rsvp_update' then 'rsvp_update'
+      else null
+    end;
+
+    if v_publication_type is null then
+      raise exception 'unsupported event social operation: %', v_command.operation
+        using errcode = '22023';
+    end if;
+
+    v_publication_id := private.queue_event_social_publication(
+      v_command.source_id,
+      v_publication_type,
+      coalesce((v_command.payload->>'transaction_id')::bigint, txid_current())
+    );
+  end if;
+
+  update public.social_commands c
+  set status = 'processed',
+      processed_at = now(),
+      lease_owner = null,
+      lease_expires_at = null,
+      last_error = null
+  where c.id = v_command.id;
+
+  return jsonb_build_object(
+    'command_id', v_command.id,
+    'publication_id', v_publication_id,
+    'source_type', v_command.source_type,
+    'source_id', v_command.source_id,
+    'operation', v_command.operation
+  );
+end;
+$function$;
+
+revoke all on function public.social_process_command(uuid, text)
+  from public, anon, authenticated;
+grant execute on function public.social_process_command(uuid, text)
+  to service_role;
+
+create or replace function public.social_get_destination(
+  p_key text
+)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $function$
+  select jsonb_build_object(
+    'key', d.key,
+    'platform', d.platform,
+    'publisher', d.publisher,
+    'enabled', d.enabled,
+    'settings', d.settings
+  )
+  from social.destinations d
+  where d.key = p_key
+$function$;
+
+revoke all on function public.social_get_destination(text)
+  from public, anon, authenticated;
+grant execute on function public.social_get_destination(text)
+  to service_role;
 
 create or replace function public.social_get_event_publication_context(
   p_publication_id uuid
@@ -691,7 +839,7 @@ as $function$
   with target as (
     select
       p.id,
-      p.event_id,
+      p.source_id as event_id,
       p.publication_type,
       p.version,
       p.payload,
@@ -700,9 +848,10 @@ as $function$
       e.leader_going_count,
       e.follower_going_count,
       e.other_going_count
-    from public.event_social_publications p
-    join public.dance_events e on e.id = p.event_id
+    from social.publications p
+    join public.dance_events e on e.id = p.source_id
     where p.id = p_publication_id
+      and p.source_type = 'event'
   ),
   attendees as (
     select
@@ -730,11 +879,11 @@ as $function$
       j.external_post_id,
       j.external_post_url,
       j.provider_response
-    from public.social_publication_jobs j
-    join public.event_social_publications p
+    from social.delivery_jobs j
+    join social.publications p
       on p.id = j.publication_id
-    join target t on t.event_id = p.event_id
-    join public.social_destinations d
+    join target t on t.event_id = p.source_id
+    join social.destinations d
       on d.key = j.destination_key
     where d.publisher = 'telegram_api'
       and j.status = 'published'
@@ -803,7 +952,7 @@ security definer
 set search_path = ''
 as $function$
 begin
-  update public.social_publication_jobs j
+  update social.delivery_jobs j
   set publish_started_at = coalesce(j.publish_started_at, now()),
       provider_progress = j.provider_progress || coalesce(p_progress, '{}'::jsonb)
   where j.id = p_job_id
@@ -831,7 +980,7 @@ security definer
 set search_path = ''
 as $function$
 begin
-  update public.social_publication_jobs j
+  update social.delivery_jobs j
   set provider_progress =
         j.provider_progress || coalesce(p_progress, '{}'::jsonb)
   where j.id = p_job_id
@@ -882,7 +1031,7 @@ begin
     raise exception 'worker id required' using errcode = '22023';
   end if;
 
-  update public.social_publication_jobs j
+  update social.delivery_jobs j
   set status = case
         when j.publish_started_at is not null
           and coalesce(j.provider_progress->>'safe_retry', 'false') <> 'true'
@@ -917,10 +1066,10 @@ begin
         partition by coalesce(d.rate_limit_group, 'destination:' || d.key)
         order by j.priority desc, j.available_at, j.created_at
       ) as gate_rank
-    from public.social_publication_jobs j
-    join public.social_destinations d
+    from social.delivery_jobs j
+    join social.destinations d
       on d.key = j.destination_key
-    left join public.social_rate_limit_groups g
+    left join social.rate_limit_groups g
       on g.key = d.rate_limit_group
     where j.status in ('queued', 'retry')
       and j.available_at <= v_now
@@ -948,7 +1097,7 @@ begin
   ),
   candidates as (
     select j.id
-    from public.social_publication_jobs j
+    from social.delivery_jobs j
     join eligible e on e.id = j.id
     where e.gate_rank = 1
     order by e.priority desc, e.available_at, e.created_at
@@ -956,7 +1105,7 @@ begin
     limit v_limit
   ),
   claimed as (
-    update public.social_publication_jobs j
+    update social.delivery_jobs j
     set status = 'leased',
         attempt_count = j.attempt_count + 1,
         lease_owner = p_worker,
@@ -967,13 +1116,13 @@ begin
     returning j.*
   ),
   touched_destinations as (
-    update public.social_destinations d
+    update social.destinations d
     set last_claimed_at = v_now
     where d.key in (select c.destination_key from claimed c)
     returning d.key, d.rate_limit_group
   ),
   touched_groups as (
-    update public.social_rate_limit_groups g
+    update social.rate_limit_groups g
     set last_claimed_at = v_now
     where g.key in (
       select distinct td.rate_limit_group
@@ -991,15 +1140,15 @@ begin
     c.operation,
     d.settings,
     p.publication_type,
-    p.event_id,
+    p.source_id as event_id,
     p.payload,
     c.attempt_count,
     c.max_attempts,
     c.provider_progress
   from claimed c
-  join public.social_destinations d
+  join social.destinations d
     on d.key = c.destination_key
-  join public.event_social_publications p
+  join social.publications p
     on p.id = c.publication_id
   order by c.priority desc, c.created_at;
 end;
@@ -1027,7 +1176,7 @@ declare
   v_destination_key text;
   v_rate_limit_group text;
 begin
-  update public.social_publication_jobs j
+  update social.delivery_jobs j
   set status = 'published',
       external_post_id = p_external_post_id,
       external_post_url = p_external_post_url,
@@ -1046,14 +1195,14 @@ begin
     return false;
   end if;
 
-  update public.social_destinations d
+  update social.destinations d
   set last_error = null,
       cooldown_until = null
   where d.key = v_destination_key
   returning d.rate_limit_group into v_rate_limit_group;
 
   if v_rate_limit_group is not null then
-    update public.social_rate_limit_groups g
+    update social.rate_limit_groups g
     set cooldown_until = null
     where g.key = v_rate_limit_group
       and coalesce(g.cooldown_until, '-infinity'::timestamptz) <= now();
@@ -1101,7 +1250,7 @@ begin
       else 'retry'
     end
   into v_publication_id, v_destination_key, v_status
-  from public.social_publication_jobs j
+  from social.delivery_jobs j
   where j.id = p_job_id
     and j.status = 'leased'
     and j.lease_owner = p_worker
@@ -1111,7 +1260,7 @@ begin
     return false;
   end if;
 
-  update public.social_publication_jobs j
+  update social.delivery_jobs j
   set status = v_status,
       available_at = case
         when v_status = 'retry'
@@ -1126,11 +1275,11 @@ begin
 
   select d.rate_limit_group
   into v_rate_limit_group
-  from public.social_destinations d
+  from social.destinations d
   where d.key = v_destination_key;
 
   if v_status = 'retry' then
-    update public.social_destinations
+    update social.destinations
     set cooldown_until = greatest(
           coalesce(cooldown_until, '-infinity'::timestamptz),
           now() + make_interval(secs => v_retry_seconds)
@@ -1139,7 +1288,7 @@ begin
     where key = v_destination_key;
 
     if v_rate_limit_group is not null then
-      update public.social_rate_limit_groups
+      update social.rate_limit_groups
       set cooldown_until = greatest(
             coalesce(cooldown_until, '-infinity'::timestamptz),
             now() + make_interval(secs => v_retry_seconds)
