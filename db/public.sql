@@ -3,7 +3,7 @@
 -- Schema:   public
 -- Entity:   tables
 -- Mode:     table_bundle
--- Updated:  2026-09-27T07:42:04.594Z
+-- Updated:  2026-09-27T08:01:08.350Z
 
 -- table: bookings
 
@@ -273,6 +273,30 @@ CREATE INDEX dancer_app_roles_granted_by_idx ON public.dancer_app_roles USING bt
 ALTER TABLE public.dancer_app_roles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY dancer_app_roles_select ON public.dancer_app_roles FOR SELECT TO authenticated USING (((dancer_id = private.current_dancer_id()) OR private.has_app_role('administrator'::app_role)));
 
+-- table: dancer_style_competition_profile
+
+CREATE TABLE public.dancer_style_competition_profile (
+  id uuid NOT NULL DEFAULT extensions.gen_random_uuid(),
+  style_profile_id uuid NOT NULL,
+  system_code text NOT NULL,
+  level_id bigint NOT NULL,
+  points numeric(12,2),
+  external_profile_id text,
+  last_synced_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT dancer_style_competition_profi_style_profile_id_system_code_key UNIQUE (style_profile_id, system_code),
+  CONSTRAINT dancer_style_competition_profile_level_id_fkey FOREIGN KEY (level_id) REFERENCES styles_levels(id) ON DELETE RESTRICT,
+  CONSTRAINT dancer_style_competition_profile_pkey PRIMARY KEY (id),
+  CONSTRAINT dancer_style_competition_profile_style_profile_id_fkey FOREIGN KEY (style_profile_id) REFERENCES dancer_style_profile(id) ON DELETE CASCADE
+);
+CREATE TRIGGER dancer_style_competition_profile_touch_updated_at BEFORE UPDATE ON public.dancer_style_competition_profile FOR EACH ROW EXECUTE FUNCTION private.touch_updated_at();
+CREATE TRIGGER dancer_style_competition_profile_validate BEFORE INSERT OR UPDATE OF style_profile_id, system_code, level_id ON public.dancer_style_competition_profile FOR EACH ROW EXECUTE FUNCTION private.validate_dancer_style_competition_profile();
+ALTER TABLE public.dancer_style_competition_profile ENABLE ROW LEVEL SECURITY;
+CREATE POLICY dancer_style_competition_profile_select_own ON public.dancer_style_competition_profile FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
+   FROM dancer_style_profile p
+  WHERE ((p.id = dancer_style_competition_profile.style_profile_id) AND (p.dancer_id = private.current_dancer_id())))));
+
 -- table: dancer_style_profile
 
 CREATE TABLE public.dancer_style_profile (
@@ -282,18 +306,19 @@ CREATE TABLE public.dancer_style_profile (
   is_leader boolean NOT NULL,
   is_trainer boolean NOT NULL DEFAULT false,
   is_default boolean NOT NULL DEFAULT false,
-  level_id bigint,
+  training_level_id bigint,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT dancer_style_profile_dancer_id_fkey FOREIGN KEY (dancer_id) REFERENCES dancer(id) ON DELETE CASCADE,
   CONSTRAINT dancer_style_profile_dancer_id_style_id_is_leader_key UNIQUE (dancer_id, style_id, is_leader),
-  CONSTRAINT dancer_style_profile_level_id_style_id_fkey FOREIGN KEY (level_id, style_id) REFERENCES styles_levels(id, style_id) ON DELETE SET NULL,
+  CONSTRAINT dancer_style_profile_level_id_style_id_fkey FOREIGN KEY (training_level_id, style_id) REFERENCES styles_levels(id, style_id) ON DELETE SET NULL,
   CONSTRAINT dancer_style_profile_pkey PRIMARY KEY (id),
   CONSTRAINT dancer_style_profile_style_id_fkey FOREIGN KEY (style_id) REFERENCES l_dance_style(id) ON DELETE CASCADE
 );
 CREATE UNIQUE INDEX dancer_style_profile_one_default ON public.dancer_style_profile USING btree (dancer_id, style_id) WHERE is_default;
 CREATE INDEX dancer_style_profile_dancer_style_idx ON public.dancer_style_profile USING btree (dancer_id, style_id);
 CREATE TRIGGER dancer_style_profile_touch_updated_at BEFORE UPDATE ON public.dancer_style_profile FOR EACH ROW EXECUTE FUNCTION private.touch_updated_at();
+CREATE TRIGGER dancer_style_profile_validate_training_level BEFORE INSERT OR UPDATE OF training_level_id, style_id ON public.dancer_style_profile FOR EACH ROW EXECUTE FUNCTION private.validate_dancer_style_training_level();
 ALTER TABLE public.dancer_style_profile ENABLE ROW LEVEL SECURITY;
 CREATE POLICY dancer_style_profile_delete_own ON public.dancer_style_profile FOR DELETE TO authenticated USING ((dancer_id = private.current_dancer_id()));
 CREATE POLICY dancer_style_profile_insert_own ON public.dancer_style_profile FOR INSERT TO authenticated WITH CHECK ((dancer_id = private.current_dancer_id()));
@@ -566,10 +591,16 @@ CREATE TABLE public.styles_levels (
   rank_order smallint NOT NULL DEFAULT 0,
   active boolean NOT NULL DEFAULT true,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
+  kind text NOT NULL DEFAULT 'training'::text,
+  system_code text NOT NULL DEFAULT 'school'::text,
+  is_sport_achievement boolean NOT NULL DEFAULT false,
+  description text,
   CONSTRAINT styles_levels_id_style_id_key UNIQUE (id, style_id),
+  CONSTRAINT styles_levels_kind_check CHECK (kind = ANY (ARRAY['training'::text, 'competition'::text])),
   CONSTRAINT styles_levels_pkey PRIMARY KEY (id),
-  CONSTRAINT styles_levels_style_id_code_key UNIQUE (style_id, code),
-  CONSTRAINT styles_levels_style_id_fkey FOREIGN KEY (style_id) REFERENCES l_dance_style(id) ON DELETE CASCADE
+  CONSTRAINT styles_levels_style_id_fkey FOREIGN KEY (style_id) REFERENCES l_dance_style(id) ON DELETE CASCADE,
+  CONSTRAINT styles_levels_style_system_code_key UNIQUE (style_id, system_code, code),
+  CONSTRAINT styles_levels_system_code_check CHECK (length(btrim(system_code)) >= 1 AND length(btrim(system_code)) <= 64)
 );
 CREATE TRIGGER styles_levels_refresh_group_titles AFTER UPDATE OF title_en, title_ru, title_sr ON public.styles_levels FOR EACH ROW EXECUTE FUNCTION private.refresh_group_titles_from_level();
 ALTER TABLE public.styles_levels ENABLE ROW LEVEL SECURITY;
