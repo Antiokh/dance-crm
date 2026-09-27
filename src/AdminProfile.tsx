@@ -231,6 +231,7 @@ function DancerEditor({
       competition_profiles: profile.competition_profiles.map((item) => ({ ...item })),
     })) ?? [],
   )
+  const [profileMenuKey, setProfileMenuKey] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -256,53 +257,66 @@ function DancerEditor({
       ),
     )
 
-  const findProfile = (styleId: number, isLeader: boolean) =>
-    profiles.find(
-      (profile) =>
-        profile.style_id === styleId
-        && profile.is_leader === isLeader,
-    )
+  const profileKey = (profile: Pick<AdminDancerStyleProfile, 'style_id' | 'is_leader'>) =>
+    `${profile.style_id}:${profile.is_leader ? 'leader' : 'follower'}`
 
-  const setRoleEnabled = (
-    styleId: number,
-    isLeader: boolean,
-    enabled: boolean,
-  ) => {
-    setProfiles((current) => {
-      const existing = current.find(
-        (profile) =>
-          profile.style_id === styleId
-          && profile.is_leader === isLeader,
-      )
-
-      if (enabled) {
-        if (existing) return current
-        const hasStyleProfile = current.some((profile) => profile.style_id === styleId)
-        return [
-          ...current,
-          {
-            id: null,
-            style_id: styleId,
-            is_leader: isLeader,
-            is_trainer: false,
-            is_default: !hasStyleProfile,
-            training_level_id: null,
-            competition_profiles: [],
-          },
+  const availableProfileOptions = catalog.styles.flatMap((style) => {
+    const roles = style.is_partner_dance
+      ? [
+          { isLeader: false, label: 'Follower' },
+          { isLeader: true, label: 'Leader' },
         ]
-      }
+      : [{ isLeader: false, label: 'Танцор' }]
 
+    return roles
+      .filter(({ isLeader }) =>
+        !profiles.some(
+          (profile) =>
+            profile.style_id === style.id
+            && profile.is_leader === isLeader,
+        ),
+      )
+      .map(({ isLeader, label }) => ({
+        value: `${style.id}:${isLeader ? 'leader' : 'follower'}`,
+        styleId: style.id,
+        isLeader,
+        label: `${styleName(style)} · ${label}`,
+      }))
+  })
+
+  const addProfile = (value: string) => {
+    const option = availableProfileOptions.find((item) => item.value === value)
+    if (!option) return
+
+    setProfiles((current) => {
+      const hasStyleProfile = current.some(
+        (profile) => profile.style_id === option.styleId,
+      )
+      return [
+        ...current,
+        {
+          id: null,
+          style_id: option.styleId,
+          is_leader: option.isLeader,
+          is_trainer: false,
+          is_default: !hasStyleProfile,
+          training_level_id: null,
+          competition_profiles: [],
+        },
+      ]
+    })
+    setProfileMenuKey(null)
+  }
+
+  const removeProfile = (target: AdminDancerStyleProfile) => {
+    setProfiles((current) => {
       const next = current.filter(
-        (profile) =>
-          !(
-            profile.style_id === styleId
-            && profile.is_leader === isLeader
-          ),
+        (profile) => profileKey(profile) !== profileKey(target),
       )
 
-      if (existing?.is_default) {
+      if (target.is_default) {
         const replacementIndex = next.findIndex(
-          (profile) => profile.style_id === styleId,
+          (profile) => profile.style_id === target.style_id,
         )
         if (replacementIndex >= 0) {
           next[replacementIndex] = {
@@ -314,6 +328,7 @@ function DancerEditor({
 
       return next
     })
+    setProfileMenuKey(null)
   }
 
   const patchProfile = (
@@ -508,147 +523,197 @@ function DancerEditor({
 
         <div className="admin-editor-heading">
           <strong>Стили</strong>
-          <span>Тренерство и классы настраиваются здесь же.</span>
+          <span>Показываем только реальные профили танцора. Новые добавляются отдельно.</span>
         </div>
 
-        {catalog.styles.map((style) => {
-          const roles = style.is_partner_dance
-            ? [
-                { isLeader: false, label: 'Follower' },
-                { isLeader: true, label: 'Leader' },
-              ]
-            : [{ isLeader: false, label: 'Танцор' }]
+        {profiles.length === 0 ? (
+          <Section className="tgui-section admin-style-empty-section">
+            <div className="admin-style-empty">
+              Стилевые профили ещё не добавлены.
+            </div>
+          </Section>
+        ) : null}
+
+        {profiles.map((profile) => {
+          const style = catalog.styles.find((item) => item.id === profile.style_id)
+          if (!style) return null
+
+          const key = profileKey(profile)
+          const profileRole = style.is_partner_dance
+            ? roleName(profile.is_leader)
+            : 'Танцор'
+          const menuOpen = profileMenuKey === key
 
           return (
             <Section
               className="tgui-section admin-style-section"
-              key={style.id}
-              header={styleName(style)}
-              footer={style.is_partner_dance ? 'Парный стиль' : 'Соло'}
+              key={key}
+              header={
+                <div className="admin-style-profile-heading">
+                  <span>{styleName(style)} · {profileRole}</span>
+                  <span className="admin-profile-menu-wrap">
+                    <button
+                      type="button"
+                      className="admin-profile-menu-trigger"
+                      aria-label={`Действия профиля ${styleName(style)} ${profileRole}`}
+                      aria-expanded={menuOpen}
+                      onClick={() =>
+                        setProfileMenuKey((current) => current === key ? null : key)
+                      }
+                    >
+                      ⋯
+                    </button>
+                    {menuOpen ? (
+                      <>
+                        <button
+                          type="button"
+                          className="admin-profile-menu-backdrop"
+                          aria-label="Закрыть меню профиля"
+                          onClick={() => setProfileMenuKey(null)}
+                        />
+                        <div className="admin-profile-menu">
+                          <button
+                            type="button"
+                            className="admin-profile-menu-delete"
+                            onClick={() => removeProfile(profile)}
+                          >
+                            Удалить профиль
+                          </button>
+                        </div>
+                      </>
+                    ) : null}
+                  </span>
+                </div>
+              }
             >
               <div className="tgui-form-panel admin-style-panel">
-              {roles.map(({ isLeader, label }) => {
-                const profile = findProfile(style.id, isLeader)
-                const enabled = Boolean(profile)
+                <div className="admin-profile-flags">
+                  <CheckField
+                    label="По умолчанию"
+                    checked={profile.is_default}
+                    onChange={(value) => {
+                      if (value) setDefaultRole(profile.style_id, profile.is_leader)
+                    }}
+                  />
+                  <CheckField
+                    label="Тренер"
+                    checked={profile.is_trainer}
+                    onChange={(value) =>
+                      patchProfile(profile.style_id, profile.is_leader, {
+                        is_trainer: value,
+                      })
+                    }
+                  />
+                </div>
 
-                return (
-                  <div className="admin-role-profile" key={label}>
-                    <CheckField
-                      label={label}
-                      checked={enabled}
-                      onChange={(value) => setRoleEnabled(style.id, isLeader, value)}
-                    />
+                <Field label="Учебный уровень">
+                  <TelegramSelect
+                    value={profile.training_level_id ?? ''}
+                    onChange={(event) =>
+                      patchProfile(profile.style_id, profile.is_leader, {
+                        training_level_id: nullableNumber(event.target.value),
+                      })
+                    }
+                  >
+                    <option value="">Не указан</option>
+                    {trainingLevels(profile.style_id).map((level) => (
+                      <option key={level.id} value={level.id}>
+                        {level.title_en}
+                      </option>
+                    ))}
+                  </TelegramSelect>
+                </Field>
 
-                    {profile ? (
-                      <div className="admin-role-profile-fields">
-                        <div className="admin-profile-flags">
-                          <CheckField
-                            label="По умолчанию"
-                            checked={profile.is_default}
-                            onChange={(value) => {
-                              if (value) setDefaultRole(style.id, isLeader)
-                            }}
-                          />
-                          <CheckField
-                            label="Тренер"
-                            checked={profile.is_trainer}
-                            onChange={(value) =>
-                              patchProfile(style.id, isLeader, {
-                                is_trainer: value,
-                              })
-                            }
-                          />
+                {competitionSystems(profile.style_id).map((systemCode) => {
+                  const levels = catalog.levels.filter(
+                    (level) =>
+                      level.style_id === profile.style_id
+                      && level.kind === 'competition'
+                      && level.system_code === systemCode
+                      && level.active,
+                  )
+                  const competition = profile.competition_profiles.find(
+                    (item) => item.system_code === systemCode,
+                  )
+
+                  return (
+                    <div className="admin-competition-block" key={systemCode}>
+                      <Field label={competitionSystemLabel(systemCode)}>
+                        <TelegramSelect
+                          value={competition?.level_id ?? ''}
+                          onChange={(event) =>
+                            patchCompetition(
+                              profile,
+                              systemCode,
+                              nullableNumber(event.target.value),
+                            )
+                          }
+                        >
+                          <option value="">Нет класса</option>
+                          {levels.map((level) => (
+                            <option key={level.id} value={level.id}>
+                              {levelName(level)}
+                            </option>
+                          ))}
+                        </TelegramSelect>
+                      </Field>
+
+                      {competition ? (
+                        <div className="two-col">
+                          <Field label="Очки">
+                            <TelegramInput
+                              inputMode="decimal"
+                              value={competition.points ?? ''}
+                              onChange={(event) =>
+                                patchCompetitionMeta(profile, systemCode, {
+                                  points: nullableNumber(event.target.value),
+                                })
+                              }
+                            />
+                          </Field>
+                          <Field label="External ID">
+                            <TelegramInput
+                              value={competition.external_profile_id ?? ''}
+                              onChange={(event) =>
+                                patchCompetitionMeta(profile, systemCode, {
+                                  external_profile_id: nullable(event.target.value),
+                                })
+                              }
+                            />
+                          </Field>
                         </div>
-
-                        <Field label="Учебный уровень">
-                          <TelegramSelect
-                            value={profile.training_level_id ?? ''}
-                            onChange={(event) =>
-                              patchProfile(style.id, isLeader, {
-                                training_level_id: nullableNumber(event.target.value),
-                              })
-                            }
-                          >
-                            <option value="">Не указан</option>
-                            {trainingLevels(style.id).map((level) => (
-                              <option key={level.id} value={level.id}>
-                                {level.title_en}
-                              </option>
-                            ))}
-                          </TelegramSelect>
-                        </Field>
-
-                        {competitionSystems(style.id).map((systemCode) => {
-                          const levels = catalog.levels.filter(
-                            (level) =>
-                              level.style_id === style.id
-                              && level.kind === 'competition'
-                              && level.system_code === systemCode
-                              && level.active,
-                          )
-                          const competition = profile.competition_profiles.find(
-                            (item) => item.system_code === systemCode,
-                          )
-
-                          return (
-                            <div className="admin-competition-block" key={systemCode}>
-                              <Field label={competitionSystemLabel(systemCode)}>
-                                <TelegramSelect
-                                  value={competition?.level_id ?? ''}
-                                  onChange={(event) =>
-                                    patchCompetition(
-                                      profile,
-                                      systemCode,
-                                      nullableNumber(event.target.value),
-                                    )
-                                  }
-                                >
-                                  <option value="">Нет класса</option>
-                                  {levels.map((level) => (
-                                    <option key={level.id} value={level.id}>
-                                      {levelName(level)}
-                                    </option>
-                                  ))}
-                                </TelegramSelect>
-                              </Field>
-
-                              {competition ? (
-                                <div className="two-col">
-                                  <Field label="Очки">
-                                    <TelegramInput
-                                      inputMode="decimal"
-                                      value={competition.points ?? ''}
-                                      onChange={(event) =>
-                                        patchCompetitionMeta(profile, systemCode, {
-                                          points: nullableNumber(event.target.value),
-                                        })
-                                      }
-                                    />
-                                  </Field>
-                                  <Field label="External ID">
-                                    <TelegramInput
-                                      value={competition.external_profile_id ?? ''}
-                                      onChange={(event) =>
-                                        patchCompetitionMeta(profile, systemCode, {
-                                          external_profile_id: nullable(event.target.value),
-                                        })
-                                      }
-                                    />
-                                  </Field>
-                                </div>
-                              ) : null}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ) : null}
-                  </div>
-                )
-              })}
+                      ) : null}
+                    </div>
+                  )
+                })}
               </div>
             </Section>
           )
         })}
+
+        <Section
+          className="tgui-section admin-add-profile-section"
+          header="Добавить профиль"
+        >
+          <div className="tgui-form-panel">
+            <TelegramSelect
+              value=""
+              disabled={availableProfileOptions.length === 0}
+              onChange={(event) => addProfile(event.target.value)}
+            >
+              <option value="">
+                {availableProfileOptions.length > 0
+                  ? 'Выберите стиль и роль'
+                  : 'Все комбинации уже добавлены'}
+              </option>
+              {availableProfileOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </TelegramSelect>
+          </div>
+        </Section>
 
         <ErrorBlock error={error} />
         <Button
