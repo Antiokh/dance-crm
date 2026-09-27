@@ -52,3 +52,8 @@ entrypoint = "./functions/text-diff/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/whoami/index.ts"
+
+[functions.event-weather]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/event-weather/index.ts"
