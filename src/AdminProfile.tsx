@@ -8,6 +8,12 @@ import {
   Spinner,
   TabsList,
 } from '@telegram-apps/telegram-ui'
+import SheetCloseButton from './components/SheetCloseButton'
+import TelegramFormField from './components/TelegramFormField'
+import TelegramInput from './components/TelegramInput'
+import TelegramSelect from './components/TelegramSelect'
+import TelegramSwitch from './components/TelegramSwitch'
+import TelegramTextarea from './components/TelegramTextarea'
 import {
   isoToLocalInput,
   loadAdminCatalog,
@@ -111,27 +117,25 @@ function AdminSheet({
   children: ReactNode
 }) {
   return (
-    <div className="sheet-backdrop admin-sheet-backdrop" onClick={onClose}>
+    <div className="sheet-backdrop admin-sheet-backdrop" onMouseDown={onClose}>
       <section
-        className="sheet admin-sheet"
-        onClick={(event) => event.stopPropagation()}
+        className="sheet admin-sheet tgui-split-sheet"
+        onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="sheet-handle" />
-        <div className="sheet-title-row">
-          <div>
-            <div className="eyebrow">{eyebrow}</div>
-            <h3>{title}</h3>
+        <div className="tgui-sheet-controls">
+          <div className="sheet-handle" />
+          <div className="sheet-title-row">
+            <div>
+              <div className="eyebrow">{eyebrow}</div>
+              <h3>{title}</h3>
+            </div>
+            <SheetCloseButton onClick={onClose} />
           </div>
-          <button
-            type="button"
-            className="close"
-            onClick={onClose}
-            aria-label="Закрыть"
-          >
-            ×
-          </button>
         </div>
-        {children}
+
+        <div className="tgui-sheet-scroll admin-sheet-scroll">
+          {children}
+        </div>
       </section>
     </div>
   )
@@ -144,7 +148,11 @@ function Field({
   label: string
   children: ReactNode
 }) {
-  return <label className="admin-field"><span>{label}</span>{children}</label>
+  return (
+    <TelegramFormField label={label}>
+      {children}
+    </TelegramFormField>
+  )
 }
 
 function CheckField({
@@ -159,15 +167,14 @@ function CheckField({
   onChange: (value: boolean) => void
 }) {
   return (
-    <label className="admin-check">
-      <input
-        type="checkbox"
+    <div className="tgui-form-toggle-row admin-toggle-row">
+      <span>{label}</span>
+      <TelegramSwitch
         checked={checked}
         disabled={disabled}
-        onChange={(event) => onChange(event.target.checked)}
+        onChange={(event) => onChange(event.currentTarget.checked)}
       />
-      <span>{label}</span>
-    </label>
+    </div>
   )
 }
 
@@ -422,15 +429,15 @@ function DancerEditor({
 
           <div className="two-col">
             <Field label="Имя">
-              <input value={firstName} onChange={(event) => setFirstName(event.target.value)} />
+              <TelegramInput value={firstName} onChange={(event) => setFirstName(event.target.value)} />
             </Field>
             <Field label="Фамилия">
-              <input value={lastName} onChange={(event) => setLastName(event.target.value)} />
+              <TelegramInput value={lastName} onChange={(event) => setLastName(event.target.value)} />
             </Field>
           </div>
 
           <Field label="Отображаемое имя">
-            <input
+            <TelegramInput
               value={customName}
               onChange={(event) => setCustomName(event.target.value)}
               placeholder="Если отличается от имени и фамилии"
@@ -439,14 +446,14 @@ function DancerEditor({
 
           <div className="two-col">
             <Field label="Telegram username">
-              <input
+              <TelegramInput
                 value={username}
                 onChange={(event) => setUsername(event.target.value.replace(/^@/, ''))}
                 placeholder="username"
               />
             </Field>
             <Field label="Telegram ID">
-              <input
+              <TelegramInput
                 inputMode="numeric"
                 value={telegramId}
                 disabled={dancer?.auth_linked === true}
@@ -458,17 +465,17 @@ function DancerEditor({
 
           <div className="two-col">
             <Field label="Основная роль">
-              <select
+              <TelegramSelect
                 value={primaryRole}
                 onChange={(event) => setPrimaryRole(event.target.value)}
               >
                 <option value="">Не выбрана</option>
                 <option value="1">Leader</option>
                 <option value="2">Follower</option>
-              </select>
+              </TelegramSelect>
             </Field>
             <Field label="Язык">
-              <input
+              <TelegramInput
                 value={langCode}
                 onChange={(event) => setLangCode(event.target.value)}
                 placeholder="ru"
@@ -537,7 +544,7 @@ function DancerEditor({
                         </div>
 
                         <Field label="Учебный уровень">
-                          <select
+                          <TelegramSelect
                             value={profile.training_level_id ?? ''}
                             onChange={(event) =>
                               patchProfile(style.id, isLeader, {
@@ -551,7 +558,7 @@ function DancerEditor({
                                 {level.title_en}
                               </option>
                             ))}
-                          </select>
+                          </TelegramSelect>
                         </Field>
 
                         {competitionSystems(style.id).map((systemCode) => {
@@ -569,7 +576,7 @@ function DancerEditor({
                           return (
                             <div className="admin-competition-block" key={systemCode}>
                               <Field label={competitionSystemLabel(systemCode)}>
-                                <select
+                                <TelegramSelect
                                   value={competition?.level_id ?? ''}
                                   onChange={(event) =>
                                     patchCompetition(
@@ -585,13 +592,13 @@ function DancerEditor({
                                       {levelName(level)}
                                     </option>
                                   ))}
-                                </select>
+                                </TelegramSelect>
                               </Field>
 
                               {competition ? (
                                 <div className="two-col">
                                   <Field label="Очки">
-                                    <input
+                                    <TelegramInput
                                       inputMode="decimal"
                                       value={competition.points ?? ''}
                                       onChange={(event) =>
@@ -602,7 +609,7 @@ function DancerEditor({
                                     />
                                   </Field>
                                   <Field label="External ID">
-                                    <input
+                                    <TelegramInput
                                       value={competition.external_profile_id ?? ''}
                                       onChange={(event) =>
                                         patchCompetitionMeta(profile, systemCode, {
@@ -744,7 +751,7 @@ function GroupEditor({
       <form onSubmit={submit}>
         <section className="section-card form-grid admin-form-card">
           <Field label="Стиль">
-            <select
+            <TelegramSelect
               value={styleId}
               onChange={(event) => setStyleId(Number(event.target.value))}
             >
@@ -753,11 +760,11 @@ function GroupEditor({
                   {styleName(style)}
                 </option>
               ))}
-            </select>
+            </TelegramSelect>
           </Field>
 
           <Field label="Уровень">
-            <select value={levelId} onChange={(event) => setLevelId(event.target.value)}>
+            <TelegramSelect value={levelId} onChange={(event) => setLevelId(event.target.value)}>
               <option value="">Без уровня</option>
               {levels.map((level) => (
                 <option key={level.id} value={level.id}>
@@ -766,18 +773,18 @@ function GroupEditor({
                     : level.title_en}
                 </option>
               ))}
-            </select>
+            </TelegramSelect>
           </Field>
 
           <Field label="Главный тренер">
-            <select value={trainerId} onChange={(event) => setTrainerId(event.target.value)}>
+            <TelegramSelect value={trainerId} onChange={(event) => setTrainerId(event.target.value)}>
               <option value="">Не назначен</option>
               {trainerCandidates.map((dancer) => (
                 <option key={dancer.id} value={dancer.id}>
                   {dancerName(dancer)}
                 </option>
               ))}
-            </select>
+            </TelegramSelect>
           </Field>
 
           <div className="admin-generated-preview">
@@ -786,7 +793,7 @@ function GroupEditor({
           </div>
 
           <Field label="Описание">
-            <textarea
+            <TelegramTextarea
               rows={3}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
@@ -795,14 +802,14 @@ function GroupEditor({
 
           <div className="two-col">
             <Field label="Максимум человек">
-              <input
+              <TelegramInput
                 inputMode="numeric"
                 value={capacity}
                 onChange={(event) => setCapacity(event.target.value)}
               />
             </Field>
             <Field label="Набор">
-              <select
+              <TelegramSelect
                 value={enrollment}
                 onChange={(event) =>
                   setEnrollment(
@@ -814,16 +821,16 @@ function GroupEditor({
                 <option value="closed">Закрыт</option>
                 <option value="waitlist_only">Только лист ожидания</option>
                 <option value="archived">Архив</option>
-              </select>
+              </TelegramSelect>
             </Field>
           </div>
 
           <div className="two-col">
             <Field label="Начало">
-              <input type="date" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} />
+              <TelegramInput type="date" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} />
             </Field>
             <Field label="Окончание">
-              <input type="date" value={endsOn} onChange={(event) => setEndsOn(event.target.value)} />
+              <TelegramInput type="date" value={endsOn} onChange={(event) => setEndsOn(event.target.value)} />
             </Field>
           </div>
 
@@ -904,45 +911,45 @@ function EventEditor({
       <form onSubmit={submit}>
         <section className="section-card form-grid admin-form-card">
           <Field label="Тип">
-            <select value={type} onChange={(e) => setType(e.target.value as AdminEvent['event_type'])}>
+            <TelegramSelect value={type} onChange={(e) => setType(e.target.value as AdminEvent['event_type'])}>
               <option value="party">Вечеринка</option>
               <option value="open_class">Опен</option>
-            </select>
+            </TelegramSelect>
           </Field>
 
           <Field label="Название">
-            <input required value={title} onChange={(e) => setTitle(e.target.value)} />
+            <TelegramInput required value={title} onChange={(e) => setTitle(e.target.value)} />
           </Field>
 
           <Field label="Описание">
-            <textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
+            <TelegramTextarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
           </Field>
 
           <div className="two-col">
             <Field label="Начало">
-              <input type="datetime-local" required value={startsLocal} onChange={(e) => setStartsLocal(e.target.value)} />
+              <TelegramInput type="datetime-local" required value={startsLocal} onChange={(e) => setStartsLocal(e.target.value)} />
             </Field>
             <Field label="Окончание">
-              <input type="datetime-local" value={endsLocal} onChange={(e) => setEndsLocal(e.target.value)} />
+              <TelegramInput type="datetime-local" value={endsLocal} onChange={(e) => setEndsLocal(e.target.value)} />
             </Field>
           </div>
 
           <Field label="Стиль">
-            <select value={styleId} onChange={(e) => setStyleId(e.target.value)}>
+            <TelegramSelect value={styleId} onChange={(e) => setStyleId(e.target.value)}>
               <option value="">Без стиля</option>
               {catalog.styles.map((style) => (
                 <option key={style.id} value={style.id}>{styleName(style)}</option>
               ))}
-            </select>
+            </TelegramSelect>
           </Field>
 
           <Field label="Зал">
-            <select value={venueId} onChange={(e) => setVenueId(e.target.value)}>
+            <TelegramSelect value={venueId} onChange={(e) => setVenueId(e.target.value)}>
               <option value="">Без зала</option>
               {catalog.venues.filter((venue) => venue.active || venue.id === venueId).map((venue) => (
                 <option key={venue.id} value={venue.id}>{venue.name}</option>
               ))}
-            </select>
+            </TelegramSelect>
           </Field>
 
           <CheckField label="Опубликовано" checked={published} onChange={setPublished} />
@@ -1011,24 +1018,24 @@ function VenueEditor({
       <form onSubmit={submit}>
         <section className="section-card form-grid admin-form-card">
           <Field label="Название">
-            <input required value={name} onChange={(e) => setName(e.target.value)} />
+            <TelegramInput required value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
           <Field label="Адрес">
-            <input value={address} onChange={(e) => setAddress(e.target.value)} />
+            <TelegramInput value={address} onChange={(e) => setAddress(e.target.value)} />
           </Field>
           <div className="two-col">
             <Field label="Широта">
-              <input inputMode="decimal" value={latitude} onChange={(e) => setLatitude(e.target.value)} />
+              <TelegramInput inputMode="decimal" value={latitude} onChange={(e) => setLatitude(e.target.value)} />
             </Field>
             <Field label="Долгота">
-              <input inputMode="decimal" value={longitude} onChange={(e) => setLongitude(e.target.value)} />
+              <TelegramInput inputMode="decimal" value={longitude} onChange={(e) => setLongitude(e.target.value)} />
             </Field>
           </div>
           <Field label="Вместимость">
-            <input inputMode="numeric" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
+            <TelegramInput inputMode="numeric" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
           </Field>
           <Field label="Заметки">
-            <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <TelegramTextarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Field>
           <CheckField label="Активен" checked={active} onChange={setActive} />
         </section>
@@ -1086,13 +1093,13 @@ function StyleEditor({
       <form onSubmit={submit}>
         <section className="section-card form-grid admin-form-card">
           <Field label="Название EN">
-            <input required value={titleEn} onChange={(e) => setTitleEn(e.target.value)} />
+            <TelegramInput required value={titleEn} onChange={(e) => setTitleEn(e.target.value)} />
           </Field>
           <Field label="Название RU">
-            <input value={titleRu} onChange={(e) => setTitleRu(e.target.value)} />
+            <TelegramInput value={titleRu} onChange={(e) => setTitleRu(e.target.value)} />
           </Field>
           <Field label="Название SR">
-            <input value={titleSr} onChange={(e) => setTitleSr(e.target.value)} />
+            <TelegramInput value={titleSr} onChange={(e) => setTitleSr(e.target.value)} />
           </Field>
           <CheckField label="Парный стиль" checked={partner} onChange={setPartner} />
         </section>
@@ -1173,21 +1180,21 @@ function LevelEditor({
       <form onSubmit={submit}>
         <section className="section-card form-grid admin-form-card">
           <Field label="Стиль">
-            <select value={styleId} onChange={(e) => setStyleId(Number(e.target.value))}>
+            <TelegramSelect value={styleId} onChange={(e) => setStyleId(Number(e.target.value))}>
               {catalog.styles.map((style) => (
                 <option key={style.id} value={style.id}>{styleName(style)}</option>
               ))}
-            </select>
+            </TelegramSelect>
           </Field>
           <div className="two-col">
             <Field label="Тип">
-              <select value={kind} onChange={(e) => setKind(e.target.value as AdminLevel['kind'])}>
+              <TelegramSelect value={kind} onChange={(e) => setKind(e.target.value as AdminLevel['kind'])}>
                 <option value="training">Учебный</option>
                 <option value="competition">Соревновательный</option>
-              </select>
+              </TelegramSelect>
             </Field>
             <Field label="Система">
-              <input
+              <TelegramInput
                 value={systemCode}
                 disabled={kind === 'training'}
                 onChange={(e) => setSystemCode(e.target.value)}
@@ -1197,23 +1204,23 @@ function LevelEditor({
           </div>
           <div className="two-col">
             <Field label="Code">
-              <input required value={code} onChange={(e) => setCode(e.target.value)} />
+              <TelegramInput required value={code} onChange={(e) => setCode(e.target.value)} />
             </Field>
             <Field label="Порядок">
-              <input inputMode="numeric" value={rank} onChange={(e) => setRank(e.target.value)} />
+              <TelegramInput inputMode="numeric" value={rank} onChange={(e) => setRank(e.target.value)} />
             </Field>
           </div>
           <Field label="Название EN">
-            <input required value={titleEn} onChange={(e) => setTitleEn(e.target.value)} />
+            <TelegramInput required value={titleEn} onChange={(e) => setTitleEn(e.target.value)} />
           </Field>
           <Field label="Название RU">
-            <input value={titleRu} onChange={(e) => setTitleRu(e.target.value)} />
+            <TelegramInput value={titleRu} onChange={(e) => setTitleRu(e.target.value)} />
           </Field>
           <Field label="Название SR">
-            <input value={titleSr} onChange={(e) => setTitleSr(e.target.value)} />
+            <TelegramInput value={titleSr} onChange={(e) => setTitleSr(e.target.value)} />
           </Field>
           <Field label="Описание">
-            <textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
+            <TelegramTextarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
           </Field>
           {kind === 'competition' ? (
             <CheckField
@@ -1257,7 +1264,7 @@ function DancersPage({
   return (
     <section className="tgui-page admin-page">
       <div className="admin-page-actions">
-        <input
+        <TelegramInput
           className="admin-search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
