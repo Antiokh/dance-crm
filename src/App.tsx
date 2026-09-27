@@ -172,15 +172,42 @@ function classDescription(
   item: GroupClass,
   status: 'booked' | 'waitlisted' | null = item.booking_status,
 ) {
-  return [
+  const prefix = [
     item.group_level,
     item.venue?.name,
-    status === 'booked'
-      ? 'Записан'
-      : status === 'waitlisted'
-        ? 'Ожидает подтверждения'
-        : null,
-  ].filter(Boolean).join(' · ') || undefined
+  ].filter(Boolean).join(' · ')
+
+  const statusNode =
+    status === 'waitlisted'
+      ? 'Ожидает подтверждения'
+      : status === 'booked' &&
+          item.style.is_partner_dance &&
+          item.role_balance
+        ? (
+            <span className="class-role-balance" aria-label={`Партнёры ${item.role_balance.leader}, партнёрши ${item.role_balance.follower}`}>
+              <span className="class-role-balance-leader">
+                {item.role_balance.leader}
+              </span>
+              <span className="class-role-balance-dot">•</span>
+              <span className="class-role-balance-follower">
+                {item.role_balance.follower}
+              </span>
+            </span>
+          )
+        : status === 'booked'
+          ? 'Записан'
+          : null
+
+  if (!prefix) return statusNode ?? undefined
+  if (!statusNode) return prefix
+
+  return (
+    <span className="class-description-inline">
+      <span>{prefix}</span>
+      <span className="class-description-separator">·</span>
+      {statusNode}
+    </span>
+  )
 }
 
 function QuickAttendToggle({
