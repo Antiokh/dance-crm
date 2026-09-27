@@ -551,7 +551,7 @@ function DancerHome({ state }: { state: FeedState }) {
   )
 }
 
-export default function App()export default function App() {
+export default function App() {
   const telegramUser = useMemo(
     () => getNativeTelegramUser() ?? getTelegramUser(),
     [],
