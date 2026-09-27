@@ -3,7 +3,7 @@
 -- Schema:   public
 -- Entity:   tables
 -- Mode:     table_bundle
--- Updated:  2026-09-27T00:21:02.884Z
+-- Updated:  2026-09-27T00:41:03.116Z
 
 -- table: bookings
 
@@ -448,6 +448,45 @@ CREATE POLICY group_trainers_admin_delete ON public.group_trainers FOR DELETE TO
 CREATE POLICY group_trainers_admin_insert ON public.group_trainers FOR INSERT TO authenticated WITH CHECK (private.has_app_role('administrator'::app_role));
 CREATE POLICY group_trainers_admin_update ON public.group_trainers FOR UPDATE TO authenticated USING (private.has_app_role('administrator'::app_role)) WITH CHECK (private.has_app_role('administrator'::app_role));
 CREATE POLICY group_trainers_select ON public.group_trainers FOR SELECT TO authenticated USING (private.can_view_group(group_id));
+
+-- table: home_attention_items
+
+CREATE TABLE public.home_attention_items (
+  id uuid NOT NULL DEFAULT extensions.gen_random_uuid(),
+  title text NOT NULL,
+  body text,
+  event_id uuid,
+  group_id uuid,
+  dancer_id uuid,
+  priority smallint NOT NULL DEFAULT 0,
+  published boolean NOT NULL DEFAULT false,
+  starts_at timestamp with time zone NOT NULL DEFAULT now(),
+  ends_at timestamp with time zone,
+  created_by uuid DEFAULT private.current_dancer_id(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT home_attention_items_created_by_fkey FOREIGN KEY (created_by) REFERENCES dancer(id) ON DELETE SET NULL,
+  CONSTRAINT home_attention_items_dancer_id_fkey FOREIGN KEY (dancer_id) REFERENCES dancer(id) ON DELETE CASCADE,
+  CONSTRAINT home_attention_items_event_id_fkey FOREIGN KEY (event_id) REFERENCES dance_events(id) ON DELETE CASCADE,
+  CONSTRAINT home_attention_items_group_id_fkey FOREIGN KEY (group_id) REFERENCES dance_group(id) ON DELETE CASCADE,
+  CONSTRAINT home_attention_items_pkey PRIMARY KEY (id),
+  CONSTRAINT home_attention_items_title_check CHECK (length(btrim(title)) > 0),
+  CONSTRAINT home_attention_single_target CHECK (group_id IS NULL OR dancer_id IS NULL),
+  CONSTRAINT home_attention_time_order CHECK (ends_at IS NULL OR ends_at > starts_at)
+);
+CREATE INDEX home_attention_active_idx ON public.home_attention_items USING btree (published, starts_at, ends_at, priority DESC);
+CREATE INDEX home_attention_group_idx ON public.home_attention_items USING btree (group_id) WHERE (group_id IS NOT NULL);
+CREATE INDEX home_attention_dancer_idx ON public.home_attention_items USING btree (dancer_id) WHERE (dancer_id IS NOT NULL);
+CREATE TRIGGER home_attention_touch_updated_at BEFORE UPDATE ON public.home_attention_items FOR EACH ROW EXECUTE FUNCTION private.touch_updated_at();
+ALTER TABLE public.home_attention_items ENABLE ROW LEVEL SECURITY;
+CREATE POLICY home_attention_admin_delete ON public.home_attention_items FOR DELETE TO authenticated USING (private.has_app_role('administrator'::app_role));
+CREATE POLICY home_attention_admin_insert ON public.home_attention_items FOR INSERT TO authenticated WITH CHECK (private.has_app_role('administrator'::app_role));
+CREATE POLICY home_attention_admin_update ON public.home_attention_items FOR UPDATE TO authenticated USING (private.has_app_role('administrator'::app_role)) WITH CHECK (private.has_app_role('administrator'::app_role));
+CREATE POLICY home_attention_select ON public.home_attention_items FOR SELECT TO authenticated USING ((private.has_app_role('administrator'::app_role) OR (published AND (starts_at <= now()) AND ((ends_at IS NULL) OR (ends_at > now())) AND (((group_id IS NULL) AND (dancer_id IS NULL)) OR (dancer_id = private.current_dancer_id()) OR (EXISTS ( SELECT 1
+   FROM group_memberships gm
+  WHERE ((gm.group_id = home_attention_items.group_id) AND (gm.dancer_id = private.current_dancer_id()) AND (gm.status = 'active'::group_membership_status) AND ((gm.starts_at IS NULL) OR (gm.starts_at <= now())) AND ((gm.ends_at IS NULL) OR (gm.ends_at > now())))))) AND ((event_id IS NULL) OR (EXISTS ( SELECT 1
+   FROM dance_events e
+  WHERE ((e.id = home_attention_items.event_id) AND e.published AND (e.cancelled_at IS NULL))))))));
 
 -- table: l_dance_role
 
