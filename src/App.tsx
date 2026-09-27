@@ -101,9 +101,11 @@ function dateParts(value: string) {
   return {
     day: new Intl.DateTimeFormat('ru-RU', {
       day: '2-digit',
+      timeZone: 'Europe/Belgrade',
     }).format(date),
     weekday: new Intl.DateTimeFormat('ru-RU', {
       weekday: 'short',
+      timeZone: 'Europe/Belgrade',
     }).format(date).replace('.', ''),
   }
 }
@@ -112,6 +114,7 @@ function dateCaption(value: string) {
   return new Intl.DateTimeFormat('ru-RU', {
     day: 'numeric',
     month: 'short',
+    timeZone: 'Europe/Belgrade',
   }).format(new Date(value)).replace('.', '')
 }
 
@@ -119,6 +122,7 @@ function shortTime(value: string) {
   return new Intl.DateTimeFormat('ru-RU', {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'Europe/Belgrade',
   }).format(new Date(value))
 }
 
