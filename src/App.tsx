@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Cell,
-  List,
   Placeholder,
   Section,
   Spinner,
@@ -171,8 +170,7 @@ export default function App() {
         ) : null}
       </header>
 
-      <section className="page auth-shell-page">
-        <List>
+      <section className="tgui-page auth-shell-page">
           {loading ? (
             <Placeholder
               header="Авторизация…"
@@ -186,7 +184,7 @@ export default function App() {
                 header="Не удалось войти"
                 description={auth.error}
               />
-              <Section header="Диагностика">
+              <Section className="tgui-section" header="Диагностика">
                 <Cell>
                   Runtime: {tma.isTelegram ? 'Telegram' : 'browser'}
                 </Cell>
@@ -202,7 +200,7 @@ export default function App() {
                 header="Browser preview"
                 description="Интерфейс загружен. Откройте Mini App из Telegram, чтобы проверить реальную авторизацию."
               />
-              <Section header="Runtime">
+              <Section className="tgui-section" header="Runtime">
                 <Cell>DanceApp: configured</Cell>
                 <Cell>
                   TMA: {tma.isTelegram ? 'Telegram detected' : 'browser preview'}
@@ -212,7 +210,7 @@ export default function App() {
             </>
           ) : (
             <>
-              <Section header="Авторизация">
+              <Section className="tgui-section" header="Авторизация">
                 <Cell
                   subtitle={
                     dancer?.telegram_username
@@ -237,13 +235,13 @@ export default function App() {
                 </Cell>
               </Section>
 
-              <Section header="Роли">
+              <Section className="tgui-section" header="Роли">
                 {auth.context.roles.map((role) => (
                   <Cell key={role}>{roleLabels[role]}</Cell>
                 ))}
               </Section>
 
-              <Section header="Танцевальные стили">
+              <Section className="tgui-section" header="Танцевальные стили">
                 {auth.context.styles.length > 0 ? (
                   <div className="auth-style-list">
                     {auth.context.styles.map((style) => (
@@ -259,7 +257,7 @@ export default function App() {
                 )}
               </Section>
 
-              <Section header="Runtime">
+              <Section className="tgui-section" header="Runtime">
                 <Cell>
                   TMA: {tma.initialized ? 'initialized' : 'fallback'}
                 </Cell>
@@ -267,7 +265,6 @@ export default function App() {
               </Section>
             </>
           )}
-        </List>
       </section>
     </main>
   )
