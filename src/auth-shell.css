@@ -154,3 +154,32 @@
 .class-role-balance-follower {
   color: #f27ab1;
 }
+
+
+.dancer-nav-icon {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.dancer-school-tabs {
+  margin-top: 0;
+}
+
+.dancer-school-tabs > * {
+  min-width: 0;
+}
+
+.dancer-school-page,
+.dancer-profile-page {
+  padding-bottom: var(--app-page-padding-bottom);
+}
+
+.dancer-profile-page .tgui-section:last-child,
+.dancer-school-page .tgui-section:last-child {
+  margin-bottom: 0;
+}
